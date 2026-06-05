@@ -1,0 +1,17 @@
+# Python environment and caches
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django settings and files
+.env
+db.sqlite3
+staticfiles/
+media/
+
+# OS and Editor configurations
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
