@@ -58,3 +58,15 @@ def create_board_view(request):
         return JsonResponse({"status": "error", "message": msg}, status=400)
     except Exception as e:
         return JsonResponse({"status": "error", "message": f"Error al procesar la solicitud: {str(e)}"}, status=500)
+
+from django.shortcuts import render
+
+@login_required
+@require_http_methods(["GET"])
+def board_detail_view(request, board_id):
+    """
+    Renderiza la página de detalle individual para un tablero Kanban,
+    validando la propiedad de forma estricta.
+    """
+    board = board_service.get_board_for_user(request.user, board_id)
+    return render(request, 'boards/board_detail.html', {'board': board})

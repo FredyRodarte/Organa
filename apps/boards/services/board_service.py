@@ -1,4 +1,5 @@
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, PermissionDenied
+from django.shortcuts import get_object_or_404
 from apps.boards.models import KanbanBoard
 
 def validate_duplicate_board(owner, name):
@@ -31,6 +32,17 @@ def create_board(owner, name, description=None):
 def get_user_boards(owner):
     """
     Obtiene todos los tableros Kanban que pertenecen al usuario dado,
-    ordenados del más reciente al más antiguo.
+    ordenados del más reciente al más antiguo, optimizando consultas mediante select_related.
     """
-    return KanbanBoard.objects.filter(owner=owner).order_by('-created_at')
+    return KanbanBoard.objects.filter(owner=owner).select_related('owner').order_by('-created_at')
+
+def get_board_for_user(user, board_id):
+    """
+    Obtiene un tablero específico por su ID y valida de forma estricta la propiedad del mismo.
+    Si el tablero no existe, lanza un error 404. Si el usuario no es el propietario,
+    lanza PermissionDenied (que se traduce en un código HTTP 403 Forbidden).
+    """
+    board = get_object_or_404(KanbanBoard, id=board_id)
+    if board.owner != user:
+        raise PermissionDenied("No tienes permisos para acceder a este tablero.")
+    return board

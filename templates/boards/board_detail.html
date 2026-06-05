@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organa - {{ board.name }}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-deep: #08090c;
+            --bg-surface: rgba(18, 20, 29, 0.7);
+            --border-glow: rgba(99, 102, 241, 0.15);
+            --accent: #6366f1;
+            --accent-glow: rgba(99, 102, 241, 0.35);
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background: radial-gradient(circle at 50% 0%, #18192b 0%, var(--bg-deep) 70%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            overflow-x: hidden;
+            padding: 40px 20px;
+        }
+
+        .board-container {
+            width: 100%;
+            max-width: 1100px;
+            padding: 40px;
+            background: var(--bg-surface);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glow);
+            border-radius: 24px;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+            animation: fadeIn 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding-bottom: 24px;
+            margin-bottom: 32px;
+        }
+
+        .brand {
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #a5b4fc, var(--accent));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-decoration: none;
+        }
+
+        .board-title-section {
+            margin-bottom: 32px;
+        }
+
+        .board-title {
+            font-size: 32px;
+            font-weight: 700;
+            letter-spacing: -0.8px;
+            margin-bottom: 8px;
+        }
+
+        .board-description {
+            font-size: 15px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        /* Kanban Columns Container */
+        .kanban-columns {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+
+        .column-card {
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 18px;
+            padding: 20px;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .column-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .column-title {
+            font-size: 16px;
+            font-weight: 600;
+            letter-spacing: -0.2px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .column-badge {
+            font-size: 11px;
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-muted);
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .column-placeholder {
+            border: 1px dashed rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.005);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 13px;
+            margin-top: auto;
+            margin-bottom: auto;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            text-decoration: none;
+            width: 100%;
+            border: none;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+        }
+
+        .btn-outline:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-sm {
+            width: auto;
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        .footer-navigation {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            padding-top: 24px;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 800px) {
+            .kanban-columns {
+                grid-template-columns: 1fr;
+            }
+            .column-card {
+                min-height: 250px;
+            }
+            .board-container {
+                padding: 24px;
+            }
+            .footer-navigation {
+                flex-direction: column;
+                gap: 16px;
+                align-items: stretch;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="board-container">
+        <!-- Header -->
+        <header class="header">
+            <a href="/dashboard/" class="brand">Organa</a>
+            <div style="font-size: 14px; color: var(--text-muted);">Tablero Activo</div>
+        </header>
+
+        <!-- Board Information -->
+        <section class="board-title-section">
+            <h1 class="board-title">{{ board.name }}</h1>
+            <p class="board-description">
+                {% if board.description %}
+                    {{ board.description }}
+                {% else %}
+                    <em style="opacity: 0.5;">Sin descripción disponible.</em>
+                {% endif %}
+            </p>
+        </section>
+
+        <!-- Kanban Board Layout -->
+        <div class="kanban-columns">
+            <!-- To Do Column -->
+            <div class="column-card">
+                <div class="column-header">
+                    <span class="column-title">
+                        <span style="color: #fca5a5;">●</span> Por Hacer
+                    </span>
+                    <span class="column-badge">0</span>
+                </div>
+                <div class="column-placeholder">No hay tareas pendientes</div>
+            </div>
+
+            <!-- In Progress Column -->
+            <div class="column-card">
+                <div class="column-header">
+                    <span class="column-title">
+                        <span style="color: #fde047;">●</span> En Progreso
+                    </span>
+                    <span class="column-badge">0</span>
+                </div>
+                <div class="column-placeholder">No hay tareas en progreso</div>
+            </div>
+
+            <!-- Done Column -->
+            <div class="column-card">
+                <div class="column-header">
+                    <span class="column-title">
+                        <span style="color: #86efac;">●</span> Completado
+                    </span>
+                    <span class="column-badge">0</span>
+                </div>
+                <div class="column-placeholder">No hay tareas finalizadas</div>
+            </div>
+        </div>
+
+        <!-- Navigation Footer -->
+        <footer class="footer-navigation">
+            <a href="/dashboard/" class="btn btn-outline btn-sm">← Volver al Panel de Control</a>
+            <span style="font-size: 12px; color: var(--text-muted); opacity: 0.6;">Creado el: {{ board.created_at|date:"d/m/Y H:i" }}</span>
+        </footer>
+    </div>
+</body>
+</html>

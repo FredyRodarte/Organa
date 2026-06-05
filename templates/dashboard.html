@@ -7,6 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    {% load static %}
+    <script src="{% static 'js/components/boards.js' %}"></script>
     <style>
         :root {
             --bg-deep: #08090c;
@@ -524,45 +526,23 @@
         // Fetch user boards on load
         async function fetchBoards() {
             const container = document.getElementById('boards-container');
+            container.innerHTML = `<div class="no-boards" style="animation: fadeIn 0.4s ease-out forwards; width: 100%;">Cargando tus tableros...</div>`;
+            
             try {
                 const response = await fetch('/boards/');
                 const data = await response.json();
 
                 if (data.status === 'success') {
-                    renderBoards(data.boards);
+                    const grid = new BoardGrid(container, data.boards);
+                    grid.render();
                 } else {
-                    container.innerHTML = `<div class="no-boards">Error al cargar tableros: ${data.message}</div>`;
+                    const errorState = new EmptyState(container, `Error al cargar tableros: ${data.message}`);
+                    errorState.render();
                 }
             } catch (error) {
-                container.innerHTML = `<div class="no-boards">Error de conexión al cargar tableros.</div>`;
+                const errorState = new EmptyState(container, 'Error de conexión al cargar tableros.');
+                errorState.render();
             }
-        }
-
-        // Render boards array in DOM
-        function renderBoards(boards) {
-            const container = document.getElementById('boards-container');
-            if (boards.length === 0) {
-                container.innerHTML = `<div class="no-boards">No tienes tableros creados aún. ¡Crea el primero ahora!</div>`;
-                return;
-            }
-
-            container.innerHTML = boards.map(b => `
-                <div class="board-card" style="animation: fadeIn 0.4s ease-out forwards;">
-                    <div>
-                        <h3 class="board-name">${escapeHTML(b.name)}</h3>
-                        <p class="board-desc">${escapeHTML(b.description) || '<em style="opacity: 0.5;">Sin descripción</em>'}</p>
-                    </div>
-                    <span class="board-date">Creado el: ${b.created_at.split(' ')[0]}</span>
-                </div>
-            `).join('');
-        }
-
-        // Escape HTML helper for XSS prevention
-        function escapeHTML(str) {
-            if (!str) return '';
-            return str.replace(/[&<>'"]/g, 
-                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-            );
         }
 
         // Handle Form Submission

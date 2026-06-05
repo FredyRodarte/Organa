@@ -127,3 +127,47 @@ class KanbanBoardTests(TestCase):
         data = response.json()
         self.assertEqual(data['status'], 'error')
         self.assertEqual(data['message'], "Ya tienes un tablero creado con el nombre 'Repetido'.")
+
+    def test_get_board_for_user_service_ownership(self):
+        """
+        Verifica que el servicio de obtener tablero lance PermissionDenied si el usuario no es el dueño.
+        """
+        from django.core.exceptions import PermissionDenied
+        board = board_service.create_board(self.user1, "Tablero Secreto")
+        
+        # User 1 debe poder acceder a su tablero
+        retrieved = board_service.get_board_for_user(self.user1, board.id)
+        self.assertEqual(retrieved, board)
+        
+        # User 2 no debe poder acceder y debe arrojar PermissionDenied
+        with self.assertRaises(PermissionDenied):
+            board_service.get_board_for_user(self.user2, board.id)
+
+    def test_board_detail_view_authenticated_owner(self):
+        """
+        Verifica que el propietario autenticado acceda a la vista de detalle con HTTP 200.
+        """
+        self.client.login(email='user1@organa.com', password='password123')
+        board = board_service.create_board(self.user1, "Tablero de User1")
+        
+        response = self.client.get(reverse('board_detail', kwargs={'board_id': board.id}))
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, 'boards/board_detail.html')
+
+    def test_board_detail_view_authenticated_non_owner(self):
+        """
+        Verifica que un usuario autenticado que NO es el propietario reciba un HTTP 403 Forbidden.
+        """
+        self.client.login(email='user2@organa.com', password='password123')
+        board = board_service.create_board(self.user1, "Tablero de User1")
+        
+        response = self.client.get(reverse('board_detail', kwargs={'board_id': board.id}))
+        self.assertEqual(response.status_code, 403)
+
+    def test_board_detail_view_not_found(self):
+        """
+        Verifica que un ID de tablero inexistente devuelva un HTTP 404 Not Found.
+        """
+        self.client.login(email='user1@organa.com', password='password123')
+        response = self.client.get(reverse('board_detail', kwargs={'board_id': 99999}))
+        self.assertEqual(response.status_code, 404)
