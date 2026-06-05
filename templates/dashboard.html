@@ -16,6 +16,9 @@
             --accent-glow: rgba(99, 102, 241, 0.35);
             --text-main: #f3f4f6;
             --text-muted: #9ca3af;
+            --input-bg: rgba(255, 255, 255, 0.02);
+            --input-border: rgba(255, 255, 255, 0.08);
+            --input-focus: #818cf8;
         }
 
         * {
@@ -33,13 +36,13 @@
             justify-content: center;
             align-items: center;
             overflow-x: hidden;
+            padding: 40px 20px;
         }
 
         .dashboard-container {
             width: 100%;
-            max-width: 800px;
+            max-width: 900px;
             padding: 40px;
-            margin: 20px;
             background: var(--bg-surface);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
@@ -105,7 +108,7 @@
 
         .welcome-section {
             text-align: center;
-            margin-bottom: 40px;
+            margin-bottom: 32px;
         }
 
         .welcome-title {
@@ -120,39 +123,208 @@
             color: var(--text-muted);
         }
 
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            margin-bottom: 40px;
+        /* Boards Section Styling */
+        .section-title-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            margin-top: 24px;
         }
 
-        .info-card {
+        .section-title {
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+        }
+
+        .boards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 20px;
+            margin-bottom: 36px;
+        }
+
+        .board-card {
             background: rgba(255, 255, 255, 0.02);
-            border: 1px solid rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.05);
             padding: 24px;
             border-radius: 16px;
-            transition: all 0.3s ease;
+            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 150px;
         }
 
-        .info-card:hover {
-            border-color: var(--border-glow);
-            box-shadow: 0 8px 30px rgba(99, 102, 241, 0.05);
-            transform: translateY(-2px);
+        .board-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 10px 30px rgba(99, 102, 241, 0.1);
+            transform: translateY(-3px);
+            background: rgba(255, 255, 255, 0.04);
         }
 
-        .info-label {
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+        .board-name {
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 8px;
+        }
+
+        .board-desc {
+            font-size: 13px;
+            color: var(--text-muted);
+            line-height: 1.5;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            flex-grow: 1;
+            margin-bottom: 12px;
+        }
+
+        .board-date {
+            font-size: 11px;
+            color: var(--text-muted);
+            opacity: 0.6;
+        }
+
+        .no-boards {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 40px;
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px dashed rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            color: var(--text-muted);
+            font-size: 15px;
+        }
+
+        /* Glassmorphic Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(8, 9, 12, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 1000;
+        }
+
+        .modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: rgba(18, 20, 29, 0.85);
+            border: 1px solid var(--border-glow);
+            width: 100%;
+            max-width: 440px;
+            padding: 36px;
+            border-radius: 20px;
+            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5);
+            transform: translateY(20px);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .modal.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-main);
+        }
+
+        /* Form styling */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
             color: var(--text-muted);
             margin-bottom: 8px;
         }
 
-        .info-value {
-            font-size: 18px;
-            font-weight: 600;
+        .form-control {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--input-border);
+            border-radius: 10px;
             color: var(--text-main);
+            font-size: 14px;
+            font-family: inherit;
+            padding: 12px 16px;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: var(--input-focus);
+            background: rgba(255, 255, 255, 0.04);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+        }
+
+        textarea.form-control {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        /* Error/Success alerts inside modal */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+            display: none;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            color: #fca5a5;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            color: #a7f3d0;
         }
 
         .btn {
@@ -161,12 +333,13 @@
             justify-content: center;
             padding: 12px 24px;
             border-radius: 12px;
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             text-decoration: none;
             width: 100%;
+            border: none;
         }
 
         .btn-outline {
@@ -183,7 +356,6 @@
         .btn-accent {
             background: var(--accent);
             color: #fff;
-            border: none;
             box-shadow: 0 4px 14px var(--accent-glow);
         }
 
@@ -191,6 +363,20 @@
             background: #5053de;
             box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
             transform: translateY(-1px);
+        }
+
+        .btn-sm {
+            width: auto;
+            padding: 8px 16px;
+            font-size: 13px;
+        }
+
+        .footer-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            padding-top: 24px;
         }
 
         @keyframes fadeIn {
@@ -213,14 +399,24 @@
                 gap: 16px;
                 align-items: flex-start;
             }
-            .info-grid {
-                grid-template-columns: 1fr;
+            .section-title-bar {
+                flex-direction: column;
+                gap: 12px;
+                align-items: flex-start;
+            }
+            .btn-sm {
+                width: 100%;
+            }
+            .footer-bar {
+                flex-direction: column;
+                gap: 16px;
             }
         }
     </style>
 </head>
 <body>
     <div class="dashboard-container">
+        <!-- Header -->
         <header class="header">
             <div class="brand">Organa</div>
             <div class="user-profile">
@@ -235,32 +431,186 @@
             </div>
         </header>
 
+        <!-- Welcome Section -->
         <section class="welcome-section">
             <h1 class="welcome-title">¡Bienvenido de vuelta!</h1>
-            <p class="welcome-subtitle">Has iniciado sesión correctamente de forma segura en la plataforma Organa.</p>
+            <p class="welcome-subtitle">Panel de control de tu espacio de trabajo y tableros interactivos.</p>
         </section>
 
-        <div class="info-grid">
-            <div class="info-card">
-                <div class="info-label">Usuario / Correo</div>
-                <div class="info-value">{{ user.email }}</div>
-            </div>
-            <div class="info-card">
-                <div class="info-label">Nombre Completo</div>
-                <div class="info-value">
-                    {% if user.get_full_name %}
-                        {{ user.get_full_name }}
-                    {% else %}
-                        {{ user.username }}
-                    {% endif %}
-                </div>
-            </div>
+        <!-- Kanban Boards Grid Section -->
+        <section class="section-title-bar">
+            <h2 class="section-title">Mis Tableros Kanban</h2>
+            <button class="btn btn-accent btn-sm" onclick="openModal()">+ Crear Tablero</button>
+        </section>
+
+        <div class="boards-grid" id="boards-container">
+            <div class="no-boards">Cargando tus tableros...</div>
         </div>
 
-        <form action="{% url 'account_logout' %}" method="post">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-outline">Cerrar Sesión</button>
-        </form>
+        <!-- Footer -->
+        <footer class="footer-bar">
+            <span style="font-size: 13px; color: var(--text-muted);">Conectado a PostgreSQL</span>
+            <form action="{% url 'account_logout' %}" method="post" style="width: auto;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline btn-sm">Cerrar Sesión</button>
+            </form>
+        </footer>
     </div>
+
+    <!-- Glassmorphic Modal Form -->
+    <div class="modal" id="create-board-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Crear Nuevo Tablero</h3>
+                <button class="modal-close" onclick="closeModal()">&times;</button>
+            </div>
+            
+            <div class="alert alert-error" id="modal-alert-error"></div>
+            <div class="alert alert-success" id="modal-alert-success"></div>
+
+            <form id="create-board-form" onsubmit="handleCreateBoard(event)">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label class="form-label" for="board-name">Nombre del Tablero *</label>
+                    <input class="form-control" type="text" id="board-name" placeholder="Ej. Proyecto de Marketing" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="board-desc">Descripción</label>
+                    <textarea class="form-control" id="board-desc" placeholder="Breve descripción del objetivo del tablero..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-accent" id="submit-btn">Guardar Tablero</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- AJAX Core Fetch Script -->
+    <script>
+        const CSRF_TOKEN = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        // Modal Controls
+        function openModal() {
+            const modal = document.getElementById('create-board-modal');
+            modal.classList.add('active');
+            document.getElementById('board-name').focus();
+            hideAlerts();
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('create-board-modal');
+            modal.classList.remove('active');
+            document.getElementById('create-board-form').reset();
+            hideAlerts();
+        }
+
+        function hideAlerts() {
+            document.getElementById('modal-alert-error').style.display = 'none';
+            document.getElementById('modal-alert-success').style.display = 'none';
+        }
+
+        function showErrorAlert(message) {
+            const err = document.getElementById('modal-alert-error');
+            err.innerText = message;
+            err.style.display = 'block';
+            document.getElementById('modal-alert-success').style.display = 'none';
+        }
+
+        function showSuccessAlert(message) {
+            const succ = document.getElementById('modal-alert-success');
+            succ.innerText = message;
+            succ.style.display = 'block';
+            document.getElementById('modal-alert-error').style.display = 'none';
+        }
+
+        // Fetch user boards on load
+        async function fetchBoards() {
+            const container = document.getElementById('boards-container');
+            try {
+                const response = await fetch('/boards/');
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    renderBoards(data.boards);
+                } else {
+                    container.innerHTML = `<div class="no-boards">Error al cargar tableros: ${data.message}</div>`;
+                }
+            } catch (error) {
+                container.innerHTML = `<div class="no-boards">Error de conexión al cargar tableros.</div>`;
+            }
+        }
+
+        // Render boards array in DOM
+        function renderBoards(boards) {
+            const container = document.getElementById('boards-container');
+            if (boards.length === 0) {
+                container.innerHTML = `<div class="no-boards">No tienes tableros creados aún. ¡Crea el primero ahora!</div>`;
+                return;
+            }
+
+            container.innerHTML = boards.map(b => `
+                <div class="board-card" style="animation: fadeIn 0.4s ease-out forwards;">
+                    <div>
+                        <h3 class="board-name">${escapeHTML(b.name)}</h3>
+                        <p class="board-desc">${escapeHTML(b.description) || '<em style="opacity: 0.5;">Sin descripción</em>'}</p>
+                    </div>
+                    <span class="board-date">Creado el: ${b.created_at.split(' ')[0]}</span>
+                </div>
+            `).join('');
+        }
+
+        // Escape HTML helper for XSS prevention
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        // Handle Form Submission
+        async function handleCreateBoard(event) {
+            event.preventDefault();
+            hideAlerts();
+
+            const name = document.getElementById('board-name').value;
+            const description = document.getElementById('board-desc').value;
+            const submitBtn = document.getElementById('submit-btn');
+
+            // Disable submit button
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Guardando...';
+
+            try {
+                const response = await fetch('/boards/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CSRF_TOKEN
+                    },
+                    body: JSON.stringify({ name, description })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    showSuccessAlert(data.message);
+                    // Reload boards list immediately without page reload
+                    await fetchBoards();
+                    // Close modal after 1.2s delay for a clean UX
+                    setTimeout(() => {
+                        closeModal();
+                    }, 1200);
+                } else {
+                    showErrorAlert(data.message || 'Error al guardar el tablero.');
+                }
+            } catch (error) {
+                showErrorAlert('Error de conexión con el servidor.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Guardar Tablero';
+            }
+        }
+
+        // Initial loading trigger
+        document.addEventListener('DOMContentLoaded', fetchBoards);
+    </script>
 </body>
 </html>
