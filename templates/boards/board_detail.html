@@ -8,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="{% static 'js/components/cards.js' %}"></script>
     <script src="{% static 'js/components/columns.js' %}"></script>
     <style>
         :root {
@@ -383,14 +384,14 @@
     <div class="modal" id="create-column-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">Agregar Nueva Columna</h3>
+                <h3 class="modal-title" id="modal-title">Agregar Nueva Columna</h3>
                 <button class="modal-close" onclick="closeColumnModal()">&times;</button>
             </div>
             
             <div class="alert alert-error" id="modal-alert-error"></div>
             <div class="alert alert-success" id="modal-alert-success"></div>
 
-            <form id="create-column-form" onsubmit="handleCreateColumn(event)">
+            <form id="create-column-form" onsubmit="handleSubmitColumn(event)">
                 {% csrf_token %}
                 <div class="form-group">
                     <label class="form-label" for="column-name">Nombre de la Columna *</label>
@@ -401,23 +402,81 @@
         </div>
     </div>
 
+    <!-- Glassmorphic Card Modal Form -->
+    <div class="modal" id="card-modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h3 class="modal-title" id="card-modal-title">Nueva Tarjeta</h3>
+                <button class="modal-close" onclick="closeCardModal()">&times;</button>
+            </div>
+            
+            <div class="alert alert-error" id="card-modal-alert-error"></div>
+            <div class="alert alert-success" id="card-modal-alert-success"></div>
+
+            <form id="card-form" onsubmit="handleSubmitCard(event)">
+                {% csrf_token %}
+                <input type="hidden" id="card-form-column-id">
+                <input type="hidden" id="card-form-card-id">
+                
+                <div class="form-group">
+                    <label class="form-label" for="card-title">Título de la Tarjeta *</label>
+                    <input class="form-control" type="text" id="card-title" placeholder="Ej. Implementar login con OAuth" required autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="card-description">Descripción</label>
+                    <textarea class="form-control" id="card-description" placeholder="Escribe detalles sobre esta tarea..." style="height: 100px; resize: vertical;"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label" for="card-priority">Prioridad</label>
+                    <select class="form-control" id="card-priority">
+                        <option value="LOW">Baja</option>
+                        <option value="MEDIUM" selected>Media</option>
+                        <option value="HIGH">Alta</option>
+                    </select>
+                </div>
+
+                <button type="submit" class="btn btn-accent" id="card-submit-btn">Guardar Tarjeta</button>
+            </form>
+        </div>
+    </div>
+
     <!-- AJAX Fetch and Operations Script -->
     <script>
         const BOARD_ID = {{ board.id }};
         const CSRF_TOKEN = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+        let editingColumnId = null;
 
         // Modal Controls
-        function openColumnModal() {
+        function openColumnModal(mode = 'create', id = null, name = '') {
             const modal = document.getElementById('create-column-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const submitBtn = document.getElementById('submit-btn');
+            
+            hideAlerts();
+            
+            if (mode === 'edit') {
+                editingColumnId = id;
+                document.getElementById('column-name').value = name;
+                modalTitle.innerText = 'Editar Columna';
+                submitBtn.innerText = 'Actualizar Columna';
+            } else {
+                editingColumnId = null;
+                document.getElementById('create-column-form').reset();
+                modalTitle.innerText = 'Agregar Nueva Columna';
+                submitBtn.innerText = 'Guardar Columna';
+            }
+            
             modal.classList.add('active');
             document.getElementById('column-name').focus();
-            hideAlerts();
         }
 
         function closeColumnModal() {
             const modal = document.getElementById('create-column-modal');
             modal.classList.remove('active');
             document.getElementById('create-column-form').reset();
+            editingColumnId = null;
             hideAlerts();
         }
 
@@ -449,6 +508,7 @@
                 const data = await response.json();
 
                 if (data.status === 'success') {
+                    window.boardColumns = data.columns || [];
                     const grid = new ColumnGrid(container, data.columns, reorderColumnsAPI);
                     grid.render();
                 } else {
@@ -459,19 +519,22 @@
             }
         }
 
-        // Handle Column Creation
-        async function handleCreateColumn(event) {
+        // Handle Column Form Submission (Create or Edit)
+        async function handleSubmitColumn(event) {
             event.preventDefault();
             hideAlerts();
 
             const name = document.getElementById('column-name').value;
             const submitBtn = document.getElementById('submit-btn');
 
+            const isEditing = editingColumnId !== null;
+            const url = isEditing ? `/columns/${editingColumnId}/update` : '/columns/create';
+
             submitBtn.disabled = true;
-            submitBtn.innerText = 'Guardando...';
+            submitBtn.innerText = isEditing ? 'Actualizando...' : 'Guardando...';
 
             try {
-                const response = await fetch('/columns/create', {
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -489,13 +552,13 @@
                         closeColumnModal();
                     }, 1000);
                 } else {
-                    showErrorAlert(data.message || 'Error al crear la columna.');
+                    showErrorAlert(data.message || 'Error al guardar la columna.');
                 }
             } catch (error) {
                 showErrorAlert('Error de conexión con el servidor.');
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.innerText = 'Guardar Columna';
+                submitBtn.innerText = isEditing ? 'Actualizar Columna' : 'Guardar Columna';
             }
         }
 
@@ -524,6 +587,219 @@
                 await fetchColumns();
             }
         }
+
+        // Expose edit and delete handlers globally for columns.js components
+        window.openEditColumnModal = function(id, name) {
+            openColumnModal('edit', id, name);
+        };
+
+        window.handleDeleteColumn = async function(id, name) {
+            const confirmed = confirm(`¿Estás seguro de que deseas eliminar la columna "${name}"? Esta acción eliminará permanentemente todas sus tareas y es irreversible.`);
+            if (!confirmed) return;
+
+            try {
+                const response = await fetch(`/columns/${id}/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CSRF_TOKEN
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    await fetchColumns();
+                } else {
+                    alert(data.message || 'Error al eliminar la columna.');
+                }
+            } catch (error) {
+                alert('Error de conexión con el servidor al intentar eliminar la columna.');
+            }
+        };
+
+        // Card Modal Controls
+        let editingCardId = null;
+
+        window.openCreateCardModal = function(columnId) {
+            const modal = document.getElementById('card-modal');
+            const modalTitle = document.getElementById('card-modal-title');
+            const submitBtn = document.getElementById('card-submit-btn');
+            
+            hideCardAlerts();
+            editingCardId = null;
+            document.getElementById('card-form').reset();
+            document.getElementById('card-form-column-id').value = columnId;
+            document.getElementById('card-form-card-id').value = '';
+            
+            modalTitle.innerText = 'Nueva Tarjeta';
+            submitBtn.innerText = 'Guardar Tarjeta';
+            
+            modal.classList.add('active');
+            document.getElementById('card-title').focus();
+        };
+
+        window.closeCardModal = function() {
+            const modal = document.getElementById('card-modal');
+            modal.classList.remove('active');
+            document.getElementById('card-form').reset();
+            editingCardId = null;
+            hideCardAlerts();
+        };
+
+        function hideCardAlerts() {
+            document.getElementById('card-modal-alert-error').style.display = 'none';
+            document.getElementById('card-modal-alert-success').style.display = 'none';
+        }
+
+        function showCardErrorAlert(message) {
+            const err = document.getElementById('card-modal-alert-error');
+            err.innerText = message;
+            err.style.display = 'block';
+            document.getElementById('card-modal-alert-success').style.display = 'none';
+        }
+
+        function showCardSuccessAlert(message) {
+            const succ = document.getElementById('card-modal-alert-success');
+            succ.innerText = message;
+            succ.style.display = 'block';
+            document.getElementById('card-modal-alert-error').style.display = 'none';
+        }
+
+        window.handleEditCard = function(card) {
+            const modal = document.getElementById('card-modal');
+            const modalTitle = document.getElementById('card-modal-title');
+            const submitBtn = document.getElementById('card-submit-btn');
+            
+            hideCardAlerts();
+            editingCardId = card.id;
+            
+            document.getElementById('card-form-card-id').value = card.id;
+            document.getElementById('card-form-column-id').value = card.column_id;
+            document.getElementById('card-title').value = card.title;
+            document.getElementById('card-description').value = card.description || '';
+            document.getElementById('card-priority').value = card.priority;
+            
+            modalTitle.innerText = 'Editar Tarjeta';
+            submitBtn.innerText = 'Actualizar Tarjeta';
+            
+            modal.classList.add('active');
+            document.getElementById('card-title').focus();
+        };
+
+        window.handleSubmitCard = async function(event) {
+            event.preventDefault();
+            hideCardAlerts();
+
+            const cardId = document.getElementById('card-form-card-id').value;
+            const columnId = document.getElementById('card-form-column-id').value;
+            const title = document.getElementById('card-title').value;
+            const description = document.getElementById('card-description').value;
+            const priority = document.getElementById('card-priority').value;
+            const submitBtn = document.getElementById('card-submit-btn');
+
+            const isEditing = cardId !== '';
+            const url = isEditing ? '/cards/update' : '/cards/create';
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = isEditing ? 'Actualizando...' : 'Guardando...';
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CSRF_TOKEN
+                    },
+                    body: JSON.stringify({
+                        card_id: cardId ? parseInt(cardId) : null,
+                        column_id: parseInt(columnId),
+                        title,
+                        description,
+                        priority
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    showCardSuccessAlert(data.message);
+                    if (window.reloadColumnCards) {
+                        window.reloadColumnCards(columnId);
+                    } else {
+                        await fetchColumns();
+                    }
+                    setTimeout(() => {
+                        closeCardModal();
+                    }, 1000);
+                } else {
+                    showCardErrorAlert(data.message || 'Error al guardar la tarjeta.');
+                }
+            } catch (error) {
+                showCardErrorAlert('Error de conexión con el servidor.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = isEditing ? 'Actualizar Tarjeta' : 'Guardar Tarjeta';
+            }
+        };
+
+        window.handleDeleteCard = async function(cardId, cardTitle, columnId) {
+            const confirmed = confirm(`¿Estás seguro de que deseas eliminar la tarea "${cardTitle}"? Esta acción es irreversible.`);
+            if (!confirmed) return;
+
+            try {
+                const response = await fetch('/cards/delete', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CSRF_TOKEN
+                    },
+                    body: JSON.stringify({ card_id: cardId })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    if (window.reloadColumnCards) {
+                        window.reloadColumnCards(columnId);
+                    } else {
+                        await fetchColumns();
+                    }
+                } else {
+                    alert(data.message || 'Error al eliminar la tarjeta.');
+                }
+            } catch (error) {
+                alert('Error de conexión al intentar eliminar la tarjeta.');
+            }
+        };
+
+        window.handleMoveCard = async function(cardId, targetColumnId) {
+            try {
+                const response = await fetch('/cards/move', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CSRF_TOKEN
+                    },
+                    body: JSON.stringify({
+                        card_id: cardId,
+                        target_column_id: targetColumnId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    await fetchColumns();
+                } else {
+                    alert(data.message || 'Error al mover la tarjeta.');
+                    await fetchColumns();
+                }
+            } catch (error) {
+                alert('Error de conexión con el servidor al mover la tarjeta.');
+                await fetchColumns();
+            }
+        };
 
         // Initialize loader on load
         document.addEventListener('DOMContentLoaded', fetchColumns);

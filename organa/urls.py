@@ -8,5 +8,6 @@ urlpatterns = [
     path('dashboard/', DashboardView.as_view(), name='dashboard'),
     path('boards/', include('apps.boards.urls')),
     path('columns/', include('apps.columns.urls')),
+    path('cards/', include('apps.cards.urls')),
     path('', HomeRedirectView.as_view(), name='home'),
 ]

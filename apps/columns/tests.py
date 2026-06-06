@@ -187,3 +187,105 @@ class KanbanColumnTests(TestCase):
             content_type="application/json"
         )
         self.assertEqual(response.status_code, 403)
+
+    def test_update_column_service_success(self):
+        """
+        Verifica que el servicio modifique el nombre de la columna.
+        """
+        col = column_service.create_column(self.board1, "Inicial")
+        updated = column_service.update_column(self.user1, col.id, "Modificado")
+        self.assertEqual(updated.name, "Modificado")
+
+    def test_update_column_service_duplicate_name(self):
+        """
+        Verifica que el servicio bloquee cambiar el nombre a uno ya existente en el mismo tablero.
+        """
+        column_service.create_column(self.board1, "Columna A")
+        col = column_service.create_column(self.board1, "Columna B")
+        with self.assertRaises(ValidationError):
+            column_service.update_column(self.user1, col.id, "columna a")
+
+    def test_update_column_service_non_owner(self):
+        """
+        Verifica que un no propietario reciba PermissionDenied al actualizar la columna.
+        """
+        col = column_service.create_column(self.board1, "Columna A")
+        with self.assertRaises(PermissionDenied):
+            column_service.update_column(self.user2, col.id, "Hack")
+
+    def test_delete_column_service_success(self):
+        """
+        Verifica que el servicio elimine la columna y normalice las posiciones restantes.
+        """
+        col1 = column_service.create_column(self.board1, "A") # 1
+        col2 = column_service.create_column(self.board1, "B") # 2
+        col3 = column_service.create_column(self.board1, "C") # 3
+        
+        column_service.delete_column(self.user1, col2.id)
+        
+        self.assertFalse(KanbanColumn.objects.filter(id=col2.id).exists())
+        col1.refresh_from_db()
+        col3.refresh_from_db()
+        
+        # Deben normalizarse a 1 y 2
+        self.assertEqual(col1.position, 1)
+        self.assertEqual(col3.position, 2)
+
+    def test_delete_column_service_non_owner(self):
+        """
+        Verifica que un no propietario reciba PermissionDenied al eliminar una columna.
+        """
+        col = column_service.create_column(self.board1, "Eliminame")
+        with self.assertRaises(PermissionDenied):
+            column_service.delete_column(self.user2, col.id)
+
+    def test_update_column_view_success(self):
+        """
+        Verifica que la API permita al dueño renombrar la columna.
+        """
+        self.client.login(email='user1@organa.com', password='password123')
+        col = column_service.create_column(self.board1, "Original")
+        response = self.client.post(
+            reverse('update_column', kwargs={'column_id': col.id}),
+            data=json.dumps({"name": "Modificado"}),
+            content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertEqual(data['column']['name'], "Modificado")
+
+    def test_update_column_view_non_owner(self):
+        """
+        Verifica que la API bloquee con 403 los intentos de actualizar de un no dueño.
+        """
+        self.client.login(email='user2@organa.com', password='password123')
+        col = column_service.create_column(self.board1, "Original")
+        response = self.client.post(
+            reverse('update_column', kwargs={'column_id': col.id}),
+            data=json.dumps({"name": "Hack"}),
+            content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_delete_column_view_success(self):
+        """
+        Verifica que la API permita al dueño eliminar la columna.
+        """
+        self.client.login(email='user1@organa.com', password='password123')
+        col = column_service.create_column(self.board1, "Eliminame")
+        response = self.client.post(reverse('delete_column', kwargs={'column_id': col.id}))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertFalse(KanbanColumn.objects.filter(id=col.id).exists())
+
+    def test_delete_column_view_non_owner(self):
+        """
+        Verifica que la API bloquee con 403 los intentos de eliminar de un no dueño.
+        """
+        self.client.login(email='user2@organa.com', password='password123')
+        col = column_service.create_column(self.board1, "Eliminame")
+        response = self.client.post(reverse('delete_column', kwargs={'column_id': col.id}))
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(KanbanColumn.objects.filter(id=col.id).exists())

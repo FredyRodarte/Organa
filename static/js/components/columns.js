@@ -36,27 +36,47 @@ class ColumnCard {
         
         // Setup DOM inner HTML
         card.innerHTML = `
-            <div class="column-header">
+            <div class="column-header" style="margin-bottom: 16px;">
                 <span class="column-title">
                     <span style="color: ${dotColor}; margin-right: 6px;">●</span> ${name}
                 </span>
                 <div style="display: flex; gap: 4px; align-items: center;">
                     ${this.index > 0 ? `<button class="btn-move-left" title="Mover izquierda" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px 6px; transition: color 0.2s;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'">←</button>` : ''}
                     ${this.index < this.totalColumns - 1 ? `<button class="btn-move-right" title="Mover derecha" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px 6px; transition: color 0.2s;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'">→</button>` : ''}
-                    <span class="column-badge" style="margin-left: 6px;">0</span>
+                    <button class="btn-col-edit" title="Editar columna" style="background: transparent; border: none; color: #a5b4fc; cursor: pointer; font-size: 13px; padding: 2px 4px; transition: opacity 0.2s; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">✎</button>
+                    <button class="btn-col-delete" title="Eliminar columna" style="background: transparent; border: none; color: #fca5a5; cursor: pointer; font-size: 13px; padding: 2px 4px; transition: opacity 0.2s; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">🗑</button>
+                    <span class="column-badge" id="column-badge-${this.column.id}" style="margin-left: 6px;">0</span>
                 </div>
             </div>
-            <div class="column-placeholder" style="flex-grow: 1; display: flex; align-items: center; justify-content: center;">
+            <div class="column-cards-container" id="column-cards-${this.column.id}" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; min-height: 20px;"></div>
+            <div class="column-placeholder" id="column-placeholder-${this.column.id}" style="display: flex; align-items: center; justify-content: center; height: 80px; border: 1px dashed rgba(255, 255, 255, 0.05); border-radius: 12px; font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
                 No hay tareas
             </div>
+            <button class="btn-add-card" title="Nueva tarea" style="width: 100%; background: transparent; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 10px; color: var(--text-muted); cursor: pointer; font-size: 13px; padding: 10px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; margin-top: auto;" onmouseover="this.style.borderColor='rgba(99, 102, 241, 0.3)'; this.style.color='var(--text-main)'; this.style.background='rgba(255,255,255,0.01)'" onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.1)'; this.style.color='var(--text-muted)'; this.style.background='transparent'">
+                + Nueva Tarjeta
+            </button>
         `;
 
         // Attach Reordering event listeners
         const moveLeftBtn = card.querySelector('.btn-move-left');
         const moveRightBtn = card.querySelector('.btn-move-right');
+        const editBtn = card.querySelector('.btn-col-edit');
+        const deleteBtn = card.querySelector('.btn-col-delete');
+        const addCardBtn = card.querySelector('.btn-add-card');
+        const cardContainer = card.querySelector('.column-cards-container');
+        const placeholder = card.querySelector('.column-placeholder');
+        const badgeEl = card.querySelector('.column-badge');
+
+        // Trigger cards load asynchronously
+        setTimeout(() => {
+            if (typeof window.fetchAndRenderCards === 'function') {
+                window.fetchAndRenderCards(this.column.id, cardContainer, placeholder, badgeEl);
+            }
+        }, 0);
 
         if (moveLeftBtn) {
-            moveLeftBtn.addEventListener('click', () => {
+            moveLeftBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 if (typeof this.onMoveLeft === 'function') {
                     this.onMoveLeft(this.column.id);
                 }
@@ -64,9 +84,37 @@ class ColumnCard {
         }
 
         if (moveRightBtn) {
-            moveRightBtn.addEventListener('click', () => {
+            moveRightBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
                 if (typeof this.onMoveRight === 'function') {
                     this.onMoveRight(this.column.id);
+                }
+            });
+        }
+
+        if (editBtn) {
+            editBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof window.openEditColumnModal === 'function') {
+                    window.openEditColumnModal(this.column.id, this.column.name);
+                }
+            });
+        }
+
+        if (deleteBtn) {
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof window.handleDeleteColumn === 'function') {
+                    window.handleDeleteColumn(this.column.id, this.column.name);
+                }
+            });
+        }
+
+        if (addCardBtn) {
+            addCardBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof window.openCreateCardModal === 'function') {
+                    window.openCreateCardModal(this.column.id);
                 }
             });
         }
@@ -168,6 +216,49 @@ class ColumnEmptyState {
         `;
     }
 }
+
+async function fetchAndRenderCards(columnId, cardContainer, placeholder, badgeEl) {
+    try {
+        const response = await fetch(`/cards/columns/${columnId}/cards`);
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+            const cards = data.cards || [];
+            badgeEl.innerText = cards.length;
+            cardContainer.innerHTML = '';
+            
+            if (cards.length === 0) {
+                placeholder.style.display = 'flex';
+            } else {
+                placeholder.style.display = 'none';
+                cards.forEach(card => {
+                    const cardComp = new CardCard(
+                        card,
+                        window.boardColumns,
+                        window.handleEditCard,
+                        window.handleDeleteCard,
+                        window.handleMoveCard
+                    );
+                    cardContainer.appendChild(cardComp.render());
+                });
+            }
+        } else {
+            cardContainer.innerHTML = `<div style="font-size:11px; color:#fca5a5; padding: 10px;">Error al cargar tareas.</div>`;
+        }
+    } catch (error) {
+        cardContainer.innerHTML = `<div style="font-size:11px; color:#fca5a5; padding: 10px;">Error de conexión.</div>`;
+    }
+}
+
+window.fetchAndRenderCards = fetchAndRenderCards;
+window.reloadColumnCards = function(columnId) {
+    const cardContainer = document.getElementById(`column-cards-${columnId}`);
+    const placeholder = document.getElementById(`column-placeholder-${columnId}`);
+    const badgeEl = document.getElementById(`column-badge-${columnId}`);
+    if (cardContainer && placeholder && badgeEl) {
+        fetchAndRenderCards(columnId, cardContainer, placeholder, badgeEl);
+    }
+};
 
 // Export to global scope
 window.ColumnCard = ColumnCard;

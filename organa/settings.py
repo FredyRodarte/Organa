@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'apps.authentication.apps.AuthenticationConfig',
     'apps.boards.apps.BoardsConfig',
     'apps.columns.apps.ColumnsConfig',
+    'apps.cards.apps.CardsConfig',
     
     # Third-Party Apps
     'allauth',

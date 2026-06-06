@@ -139,3 +139,56 @@ def reorder_columns_view(request):
         return JsonResponse({"status": "error", "message": "El tablero especificado no existe."}, status=404)
     except Exception as e:
         return JsonResponse({"status": "error", "message": f"Error al reordenar columnas: {str(e)}"}, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def update_column_view(request, column_id):
+    """
+    Actualiza el nombre de una columna Kanban tras validar propiedad y nombre único.
+    """
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"status": "error", "message": "Formato de datos JSON inválido."}, status=400)
+        
+    name = data.get("name")
+    
+    try:
+        column = column_service.update_column(request.user, column_id, name)
+        return JsonResponse({
+            "status": "success",
+            "message": "Columna modificada correctamente.",
+            "column": {
+                "id": column.id,
+                "name": column.name,
+                "position": column.position
+            }
+        }, status=200)
+    except ValidationError as e:
+        msg = e.messages[0] if hasattr(e, 'messages') else str(e)
+        return JsonResponse({"status": "error", "message": msg}, status=400)
+    except PermissionDenied as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=403)
+    except Http404:
+        return JsonResponse({"status": "error", "message": "La columna especificada no existe."}, status=404)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"Error al modificar la columna: {str(e)}"}, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def delete_column_view(request, column_id):
+    """
+    Elimina una columna Kanban tras validar propiedad y normaliza el orden del resto.
+    """
+    try:
+        column_service.delete_column(request.user, column_id)
+        return JsonResponse({
+            "status": "success",
+            "message": "Columna eliminada correctamente."
+        }, status=200)
+    except PermissionDenied as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=403)
+    except Http404:
+        return JsonResponse({"status": "error", "message": "La columna especificada no existe."}, status=404)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"Error al eliminar la columna: {str(e)}"}, status=500)

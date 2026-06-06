@@ -86,3 +86,49 @@ def reorder_columns(board, column_order_list):
             updated_columns.append(col)
             
         return updated_columns
+
+def get_column_for_user(user, column_id):
+    """
+    Obtiene una columna Kanban tras verificar la propiedad del tablero al que pertenece.
+    Lanza Http404 si la columna no existe, y PermissionDenied si el usuario no es el dueño.
+    """
+    from django.shortcuts import get_object_or_404
+    from apps.boards.services import board_service
+    column = get_object_or_404(KanbanColumn, id=column_id)
+    # Validar propiedad del tablero
+    board_service.get_board_for_user(user, column.board_id)
+    return column
+
+def update_column(user, column_id, name):
+    """
+    Actualiza el nombre de una columna Kanban tras validar ownership y nombre único.
+    """
+    if not name or not name.strip():
+        raise ValidationError("El nombre de la columna es obligatorio.")
+        
+    name_clean = name.strip()
+    column = get_column_for_user(user, column_id)
+    
+    # Validar que no se duplique el nombre
+    validate_column_name(column.board, name_clean, exclude_column_id=column_id)
+    
+    column.name = name_clean
+    column.save()
+    return column
+
+def delete_column(user, column_id):
+    """
+    Elimina una columna Kanban y normaliza la posición del resto de columnas secuencialmente.
+    """
+    column = get_column_for_user(user, column_id)
+    
+    with transaction.atomic():
+        board = column.board
+        column.delete()
+        
+        # Normalizar posiciones para evitar huecos en la base de datos (1, 2, 3...)
+        remaining_columns = board.columns.all().order_by('position')
+        for index, col in enumerate(remaining_columns, start=1):
+            if col.position != index:
+                col.position = index
+                col.save()
