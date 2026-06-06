@@ -31,6 +31,7 @@ def create_card_view(request):
             "message": "Tarjeta creada correctamente.",
             "card": {
                 "id": card.id,
+                "column_id": card.column_id,
                 "title": card.title,
                 "description": card.description or "",
                 "priority": card.priority,
@@ -74,6 +75,7 @@ def update_card_view(request):
             "message": "Tarjeta modificada correctamente.",
             "card": {
                 "id": card.id,
+                "column_id": card.column_id,
                 "title": card.title,
                 "description": card.description or "",
                 "priority": card.priority,
@@ -139,6 +141,7 @@ def list_cards_view(request, column_id):
         data = [
             {
                 "id": card.id,
+                "column_id": card.column_id,
                 "title": card.title,
                 "description": card.description or "",
                 "priority": card.priority,

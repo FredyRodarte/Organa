@@ -143,6 +143,7 @@ class KanbanCardTests(TestCase):
         data = response.json()
         self.assertEqual(data['status'], 'success')
         self.assertEqual(data['card']['title'], "API Card")
+        self.assertEqual(data['card']['column_id'], self.column1.id)
 
     def test_create_card_view_non_owner(self):
         """
@@ -179,6 +180,7 @@ class KanbanCardTests(TestCase):
         data = response.json()
         self.assertEqual(data['status'], 'success')
         self.assertEqual(data['card']['title'], "Updated Title")
+        self.assertEqual(data['card']['column_id'], self.column1.id)
 
     def test_move_card_view_success(self):
         """
@@ -228,4 +230,6 @@ class KanbanCardTests(TestCase):
         self.assertEqual(data['status'], 'success')
         self.assertEqual(len(data['cards']), 2)
         self.assertEqual(data['cards'][0]['title'], "Card 1")
+        self.assertEqual(data['cards'][0]['column_id'], self.column1.id)
         self.assertEqual(data['cards'][1]['title'], "Card 2")
+        self.assertEqual(data['cards'][1]['column_id'], self.column1.id)
