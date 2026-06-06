@@ -10,5 +10,6 @@ urlpatterns = [
     path('columns/', include('apps.columns.urls')),
     path('cards/', include('apps.cards.urls')),
     path('stories/', include('apps.user_stories.urls')),
+    path('tasks/', include('apps.tasks.urls')),
     path('', HomeRedirectView.as_view(), name='home'),
 ]

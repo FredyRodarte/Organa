@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'apps.columns.apps.ColumnsConfig',
     'apps.cards.apps.CardsConfig',
     'apps.user_stories.apps.UserStoriesConfig',
+    'apps.tasks.apps.TasksConfig',
     
     # Third-Party Apps
     'allauth',

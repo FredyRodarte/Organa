@@ -42,7 +42,10 @@ def create_story_view(request):
                 "business_value": story.business_value,
                 "priority": story.priority,
                 "status": story.status,
-                "created_at": story.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                "created_at": story.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "total_tasks": 0,
+                "completed_tasks": 0,
+                "total_hours": 0
             }
         }, status=201)
     except ValidationError as e:
@@ -89,7 +92,10 @@ def update_story_view(request):
                 "description": story.description or "",
                 "business_value": story.business_value,
                 "priority": story.priority,
-                "status": story.status
+                "status": story.status,
+                "total_tasks": story.tasks.count(),
+                "completed_tasks": story.tasks.filter(status='DONE').count(),
+                "total_hours": sum(t.estimated_hours for t in story.tasks.all())
             }
         }, status=200)
     except ValidationError as e:
@@ -118,7 +124,10 @@ def list_stories_view(request, board_id):
                 "business_value": story.business_value,
                 "priority": story.priority,
                 "status": story.status,
-                "created_at": story.created_at.strftime("%Y-%m-%d %H:%M:%S")
+                "created_at": story.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "total_tasks": story.tasks.count(),
+                "completed_tasks": story.tasks.filter(status='DONE').count(),
+                "total_hours": sum(t.estimated_hours for t in story.tasks.all())
             }
             for story in stories
         ]
@@ -154,6 +163,18 @@ def detail_story_view(request, story_id):
             for card in cards
         ]
         
+        tasks = story.tasks.all()
+        tasks_data = [
+            {
+                "id": task.id,
+                "title": task.title,
+                "description": task.description or "",
+                "status": task.status,
+                "estimated_hours": task.estimated_hours
+            }
+            for task in tasks
+        ]
+        
         return JsonResponse({
             "status": "success",
             "story": {
@@ -165,7 +186,11 @@ def detail_story_view(request, story_id):
                 "priority": story.priority,
                 "status": story.status,
                 "created_at": story.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                "cards": cards_data
+                "total_tasks": len(tasks_data),
+                "completed_tasks": sum(1 for t in tasks_data if t['status'] == 'DONE'),
+                "total_hours": sum(t['estimated_hours'] for t in tasks_data),
+                "cards": cards_data,
+                "tasks": tasks_data
             }
         }, status=200)
     except Http404:

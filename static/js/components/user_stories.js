@@ -1,5 +1,14 @@
 // Reusable Frontend Components for Organa User Stories
 
+if (typeof escapeHTML === 'undefined') {
+    window.escapeHTML = function(str) {
+        if (!str) return '';
+        return str.replace(/[&<>'"]/g, 
+            tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+        );
+    };
+}
+
 class StoryCard {
     /**
      * @param {Object} story - Story data
@@ -81,23 +90,48 @@ class StoryCard {
         const title = escapeHTML(this.story.title);
         const desc = escapeHTML(this.story.description || '');
 
+        const totalTasks = this.story.total_tasks || 0;
+        const completedTasks = this.story.completed_tasks || 0;
+        const totalHours = this.story.total_hours || 0;
+        const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+        const hoursBadgeHtml = `
+            <span style="font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 8px; background: rgba(59, 130, 246, 0.12); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.25);">
+                ⏱ ${totalHours}h
+            </span>
+        `;
+
         cardEl.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
                 <span style="font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 8px; background: ${priBg}; color: ${priColor}; border: ${priBorder}; text-transform: uppercase;">
                     ${priLabel}
                 </span>
-                <div style="display: flex; gap: 6px;">
+                <div style="display: flex; gap: 6px; align-items: center;">
                     <span style="font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 8px; background: ${statBg}; color: ${statColor}; border: 1px solid ${statColor}30;">
                         ${statLabel}
                     </span>
                     <span style="font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 8px; background: rgba(139, 92, 246, 0.12); color: #d8b4fe; border: 1px solid rgba(139, 92, 246, 0.25);">
                         Valor: ${value}
                     </span>
+                    ${hoursBadgeHtml}
                 </div>
             </div>
             <h4 style="font-size: 14px; font-weight: 600; color: var(--text-main); margin: 0; line-height: 1.4;">${title}</h4>
             ${desc ? `<p style="font-size: 12px; color: var(--text-muted); margin: 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5;">${desc}</p>` : ''}
             
+            <!-- Progress Bar -->
+            ${totalTasks > 0 ? `
+            <div style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px; background: rgba(255, 255, 255, 0.01); border-radius: 6px; padding: 4px 0;">
+                <div style="display: flex; justify-content: space-between; font-size: 10px; color: var(--text-muted);">
+                    <span>Subtareas: ${completedTasks}/${totalTasks}</span>
+                    <span style="font-weight: 600; color: var(--text-main);">${progressPercent}%</span>
+                </div>
+                <div style="height: 6px; background: rgba(255, 255, 255, 0.05); border-radius: 3px; overflow: hidden;">
+                    <div style="height: 100%; width: ${progressPercent}%; background: linear-gradient(90deg, #8b5cf6, #ec4899); border-radius: 3px; transition: width 0.3s ease;"></div>
+                </div>
+            </div>
+            ` : ''}
+
             <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid rgba(255, 255, 255, 0.03); padding-top: 8px; margin-top: 4px; font-size: 11px; color: var(--text-muted);">
                 <span id="story-linked-count-${this.story.id}">🔗 Cargando tareas vinculadas...</span>
                 <span style="color: var(--accent); font-weight: 500;">Ver detalles →</span>
@@ -136,13 +170,19 @@ class StoryDetail {
      * @param {Function} onUpdate - Callback to update story attributes
      * @param {Function} onLinkCard - Callback to link a card
      * @param {Function} onUnlinkCard - Callback to unlink a card
+     * @param {Function} onCreateTask - Callback to create a subtask
+     * @param {Function} onUpdateTask - Callback to update a subtask
+     * @param {Function} onDeleteTask - Callback to delete a subtask
      */
-    constructor(story, onBack, onUpdate, onLinkCard, onUnlinkCard) {
+    constructor(story, onBack, onUpdate, onLinkCard, onUnlinkCard, onCreateTask, onUpdateTask, onDeleteTask) {
         this.story = story;
         this.onBack = onBack;
         this.onUpdate = onUpdate;
         this.onLinkCard = onLinkCard;
         this.onUnlinkCard = onUnlinkCard;
+        this.onCreateTask = onCreateTask;
+        this.onUpdateTask = onUpdateTask;
+        this.onDeleteTask = onDeleteTask;
     }
 
     render() {
@@ -189,15 +229,98 @@ class StoryDetail {
             });
         }
 
+        const totalTasks = this.story.total_tasks || 0;
+        const completedTasks = this.story.completed_tasks || 0;
+        const totalHours = this.story.total_hours || 0;
+        const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+        let tasksListHtml = '';
+        if (!this.story.tasks || this.story.tasks.length === 0) {
+            tasksListHtml = `
+                <div style="text-align: center; padding: 20px; border: 1px dashed rgba(255,255,255,0.05); border-radius: 8px; color: var(--text-muted); font-size: 12px;">
+                    No hay subtareas técnicas definidas.
+                </div>
+            `;
+        } else {
+            this.story.tasks.forEach(task => {
+                const isDone = task.status === 'DONE';
+                const titleStyle = isDone ? 'text-decoration: line-through; color: var(--text-muted); font-style: italic;' : 'color: var(--text-main); font-weight: 500;';
+                
+                tasksListHtml += `
+                    <div class="task-item-row" data-task-id="${task.id}" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 12px; font-size: 13px; transition: background 0.2s;">
+                        <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1; min-width: 0;">
+                            <span class="task-title" style="${titleStyle} overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(task.title)}">
+                                ${escapeHTML(task.title)}
+                            </span>
+                            <span style="font-size: 10px; color: var(--text-muted);">Estimación: ⏱ ${task.estimated_hours}h</span>
+                        </div>
+                        
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <!-- Status Dropdown -->
+                            <select class="select-task-status form-control" data-task-id="${task.id}" style="padding: 4px 8px; font-size: 11px; width: auto; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); height: 28px;">
+                                <option value="TODO" ${task.status === 'TODO' ? 'selected' : ''}>Por hacer</option>
+                                <option value="IN_PROGRESS" ${task.status === 'IN_PROGRESS' ? 'selected' : ''}>En progreso</option>
+                                <option value="DONE" ${task.status === 'DONE' ? 'selected' : ''}>Completado</option>
+                            </select>
+                            
+                            <!-- Delete Button -->
+                            <button class="btn-delete-task" data-task-id="${task.id}" title="Eliminar subtarea" style="background: transparent; border: none; color: #fca5a5; cursor: pointer; font-size: 12px; padding: 4px 6px; transition: opacity 0.2s; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+                                🗑
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
         detailEl.innerHTML = `
             <!-- Back Button -->
             <button id="btn-back-to-stories" style="background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-muted); padding: 8px 12px; font-size: 12px; cursor: pointer; align-self: flex-start; transition: all 0.2s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.2)'; this.style.color='var(--text-main)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'; this.style.color='var(--text-muted)'">
                 ← Volver al listado
             </button>
 
+            <!-- Progress Bar Card -->
+            <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h4 style="font-size: 14px; font-weight: 600; margin: 0; color: var(--text-main);">Progreso de Subtareas</h4>
+                    <span style="font-size: 13px; font-weight: 700; color: var(--accent);">${progressPercent}%</span>
+                </div>
+                <div style="height: 8px; background: rgba(255, 255, 255, 0.05); border-radius: 4px; overflow: hidden;">
+                    <div style="height: 100%; width: ${progressPercent}%; background: linear-gradient(90deg, #8b5cf6, #ec4899); border-radius: 4px; transition: width 0.3s ease;"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); margin-top: 2px;">
+                    <span>${completedTasks} de ${totalTasks} completadas</span>
+                    <span>Total estimado: ⏱ ${totalHours}h</span>
+                </div>
+            </div>
+
+            <!-- Technical Subtasks Manager -->
+            <div style="display: flex; flex-direction: column; gap: 12px; background: rgba(255, 255, 255, 0.01); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 12px; padding: 20px;">
+                <h4 style="font-size: 14px; font-weight: 600; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 8px;">Subtareas Técnicas</h4>
+                
+                <!-- Inline Create Form -->
+                <form id="create-task-form" style="display: flex; gap: 8px; align-items: flex-end; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
+                    <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
+                        <label for="new-task-title" style="font-size: 10px; color: var(--text-muted);">Nueva Subtarea *</label>
+                        <input type="text" id="new-task-title" class="form-control" placeholder="Ej. Crear modelo de datos" required style="padding: 6px 12px; font-size: 12px; background: rgba(255,255,255,0.02); height: 32px; margin-bottom: 0;">
+                    </div>
+                    <div style="width: 80px; display: flex; flex-direction: column; gap: 4px;">
+                        <label for="new-task-hours" style="font-size: 10px; color: var(--text-muted);">Horas</label>
+                        <input type="number" id="new-task-hours" class="form-control" value="0" min="0" required style="padding: 6px 12px; font-size: 12px; background: rgba(255,255,255,0.02); height: 32px; margin-bottom: 0;">
+                    </div>
+                    <button type="submit" class="btn btn-accent btn-sm" style="padding: 0 12px; font-size: 12px; height: 32px; width: auto; white-space: nowrap; display: flex; align-items: center; justify-content: center;">Agregar</button>
+                </form>
+
+                <div id="task-error-alert" class="alert alert-error" style="display: none; font-size: 11px; padding: 8px; margin-bottom: 8px;"></div>
+
+                <div id="tasks-list" style="display: flex; flex-direction: column; gap: 8px;">
+                    ${tasksListHtml}
+                </div>
+            </div>
+
             <!-- Edit Story Form -->
-            <form id="edit-story-form" style="display: flex; flex-direction: column; gap: 16px; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.03); border-radius: 12px; padding: 20px;">
-                <h4 style="font-size: 15px; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px;">Editar Historia de Usuario</h4>
+            <form id="edit-story-form" style="display: flex; flex-direction: column; gap: 16px; background: rgba(255, 255, 255, 0.01); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 12px; padding: 20px;">
+                <h4 style="font-size: 15px; font-weight: 600; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 8px;">Editar Historia de Usuario</h4>
                 
                 <div class="form-group" style="margin-bottom: 0;">
                     <label class="form-label" for="edit-story-title" style="font-size: 11px;">Título *</label>
@@ -244,10 +367,10 @@ class StoryDetail {
                 <!-- Link New Card Inline -->
                 ${linkableCards.length > 0 ? `
                     <div style="display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 12px;">
-                        <select id="select-link-card" class="form-control" style="flex-grow: 1; padding: 6px 12px; font-size: 12px;">
+                        <select id="select-link-card" class="form-control" style="flex-grow: 1; padding: 6px 12px; font-size: 12px; height: 32px; margin-bottom: 0;">
                             ${linkableOptions}
                         </select>
-                        <button id="btn-link-card-submit" class="btn btn-accent btn-sm" style="padding: 6px 12px; font-size: 12px; width: auto; white-space: nowrap;">+ Vincular</button>
+                        <button id="btn-link-card-submit" class="btn btn-accent btn-sm" style="padding: 0 12px; font-size: 12px; height: 32px; width: auto; white-space: nowrap;">+ Vincular</button>
                     </div>
                 ` : ''}
 
@@ -262,6 +385,11 @@ class StoryDetail {
         const editForm = detailEl.querySelector('#edit-story-form');
         const linkBtn = detailEl.querySelector('#btn-link-card-submit');
         const unlinkButtons = detailEl.querySelectorAll('.btn-unlink-card');
+
+        // Task Action Hooks
+        const createTaskForm = detailEl.querySelector('#create-task-form');
+        const statusSelects = detailEl.querySelectorAll('.select-task-status');
+        const deleteTaskBtns = detailEl.querySelectorAll('.btn-delete-task');
 
         if (backBtn) {
             backBtn.addEventListener('click', () => {
@@ -308,6 +436,70 @@ class StoryDetail {
                 const cardId = parseInt(btn.getAttribute('data-card-id'));
                 if (cardId && typeof this.onUnlinkCard === 'function') {
                     this.onUnlinkCard(cardId, this.story.id);
+                }
+            });
+        });
+
+        // Technical subtask form submit listener
+        if (createTaskForm) {
+            createTaskForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const titleInput = createTaskForm.querySelector('#new-task-title');
+                const hoursInput = createTaskForm.querySelector('#new-task-hours');
+                const errorAlert = detailEl.querySelector('#task-error-alert');
+
+                const title = titleInput.value ? titleInput.value.trim() : '';
+                const hours = parseInt(hoursInput.value || 0);
+
+                errorAlert.style.display = 'none';
+
+                if (typeof this.onCreateTask === 'function') {
+                    try {
+                        await this.onCreateTask(title, hours);
+                        titleInput.value = '';
+                        hoursInput.value = '0';
+                    } catch (err) {
+                        errorAlert.innerText = err.message || 'Error al crear la subtarea.';
+                        errorAlert.style.display = 'block';
+                    }
+                }
+            });
+        }
+
+        // Technical subtasks status dropdown listeners
+        statusSelects.forEach(select => {
+            select.addEventListener('change', async () => {
+                const taskId = parseInt(select.getAttribute('data-task-id'));
+                const status = select.value;
+                const task = this.story.tasks.find(t => t.id === taskId);
+                if (task && typeof this.onUpdateTask === 'function') {
+                    try {
+                        await this.onUpdateTask(taskId, {
+                            title: task.title,
+                            description: task.description,
+                            estimated_hours: task.estimated_hours,
+                            status: status
+                        });
+                    } catch (err) {
+                        alert(err.message || 'Error al actualizar el estado de la tarea.');
+                        select.value = task.status; // Revert selection
+                    }
+                }
+            });
+        });
+
+        // Technical subtasks delete buttons listeners
+        deleteTaskBtns.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const taskId = parseInt(btn.getAttribute('data-task-id'));
+                if (taskId && confirm('¿Estás seguro de que deseas eliminar esta subtarea técnica?')) {
+                    if (typeof this.onDeleteTask === 'function') {
+                        try {
+                            await this.onDeleteTask(taskId);
+                        } catch (err) {
+                            alert(err.message || 'Error al eliminar la subtarea.');
+                        }
+                    }
                 }
             });
         });
@@ -542,7 +734,10 @@ class StoryList {
                     },
                     (updatedData) => this.handleUpdateStory(updatedData),
                     (cardId, storyId) => this.handleLinkCard(cardId, storyId),
-                    (cardId, storyId) => this.handleUnlinkCard(cardId, storyId)
+                    (cardId, storyId) => this.handleUnlinkCard(cardId, storyId),
+                    (title, hours) => this.handleCreateTask(title, hours),
+                    (taskId, payload) => this.handleUpdateTask(taskId, payload),
+                    (taskId) => this.handleDeleteTask(taskId)
                 );
 
                 this.container.appendChild(detailComp.render());
@@ -628,6 +823,88 @@ class StoryList {
             }
         } catch (e) {
             alert('Error de conexión.');
+        }
+    }
+
+    async handleCreateTask(title, estimatedHours) {
+        try {
+            const response = await fetch('/tasks/create', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.csrfToken
+                },
+                body: JSON.stringify({
+                    story_id: this.activeStoryId,
+                    title: title,
+                    estimated_hours: estimatedHours,
+                    status: 'TODO'
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok && data.status === 'success') {
+                await this.load();
+                await this.renderDetailView();
+            } else {
+                throw new Error(data.message || 'Error al crear la subtarea.');
+            }
+        } catch (e) {
+            throw e;
+        }
+    }
+
+    async handleUpdateTask(taskId, payload) {
+        try {
+            const response = await fetch('/tasks/update', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.csrfToken
+                },
+                body: JSON.stringify({
+                    task_id: taskId,
+                    title: payload.title,
+                    description: payload.description,
+                    estimated_hours: payload.estimated_hours,
+                    status: payload.status
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok && data.status === 'success') {
+                await this.load();
+                await this.renderDetailView();
+            } else {
+                throw new Error(data.message || 'Error al actualizar la subtarea.');
+            }
+        } catch (e) {
+            throw e;
+        }
+    }
+
+    async handleDeleteTask(taskId) {
+        try {
+            const response = await fetch('/tasks/delete', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.csrfToken
+                },
+                body: JSON.stringify({
+                    task_id: taskId
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok && data.status === 'success') {
+                await this.load();
+                await this.renderDetailView();
+            } else {
+                throw new Error(data.message || 'Error al eliminar la subtarea.');
+            }
+        } catch (e) {
+            throw e;
         }
     }
 }

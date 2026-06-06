@@ -3,7 +3,7 @@ import subprocess
 def run():
     print("Running tests...")
     result = subprocess.run(
-        ['.venv/Scripts/python.exe', 'manage.py', 'test', 'apps.boards'],
+        ['.venv/Scripts/python.exe', 'manage.py', 'test', 'apps.tasks'],
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True
