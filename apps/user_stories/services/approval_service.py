@@ -28,6 +28,13 @@ def approve_story(user, story_id):
     story.approved_at = timezone.now()
     story.rejection_reason = None
     story.save()
+    
+    from apps.authentication.services import rbac_service
+    rbac_service.log_action(
+        user=user,
+        action='STORY_APPROVE',
+        description=f"Historia de usuario '{story.title}' (ID: {story.id}) aprobada."
+    )
     return story
 
 def reject_story(user, story_id, reason):
@@ -45,6 +52,13 @@ def reject_story(user, story_id, reason):
     story.approved_by = user
     story.approved_at = timezone.now()
     story.save()
+    
+    from apps.authentication.services import rbac_service
+    rbac_service.log_action(
+        user=user,
+        action='STORY_REJECT',
+        description=f"Historia de usuario '{story.title}' (ID: {story.id}) rechazada. Motivo: {reason.strip()}."
+    )
     return story
 
 def request_changes(user, story_id, reason):
@@ -62,4 +76,11 @@ def request_changes(user, story_id, reason):
     story.approved_by = user
     story.approved_at = timezone.now()
     story.save()
+    
+    from apps.authentication.services import rbac_service
+    rbac_service.log_action(
+        user=user,
+        action='STORY_CHANGES_REQUESTED',
+        description=f"Ajustes solicitados para la historia '{story.title}' (ID: {story.id}). Motivo: {reason.strip()}."
+    )
     return story

@@ -119,11 +119,11 @@ class StoryCard {
         const totalHours = this.story.total_hours || 0;
         const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-        const hoursBadgeHtml = `
+        const hoursBadgeHtml = totalHours > 0 ? `
             <span style="font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 8px; background: rgba(59, 130, 246, 0.12); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.25);">
                 ⏱ ${totalHours}h
             </span>
-        `;
+        ` : '';
 
         cardEl.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
@@ -223,6 +223,9 @@ class StoryDetail {
     }
 
     render() {
+        const isPO = (this.userRole === 'PO');
+        const isDeveloper = (this.userRole === 'DEV');
+
         const detailEl = document.createElement('div');
         detailEl.className = 'story-detail-view';
         detailEl.style.cssText = `
@@ -257,10 +260,13 @@ class StoryDetail {
             `;
         } else {
             this.story.cards.forEach(card => {
+                const unlinkBtnHtml = isPO ? `
+                    <button class="btn-unlink-card" data-card-id="${card.id}" title="Desvincular" style="background: transparent; border: none; color: #fca5a5; cursor: pointer; font-size: 12px; padding: 2px 6px; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">🗑</button>
+                ` : '';
                 linkedCardsHtml += `
                     <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 10px 12px; font-size: 13px;">
                         <span style="font-weight: 500; color: var(--text-main);">${escapeHTML(card.title)} <span style="font-size: 10px; color: var(--text-muted); margin-left: 6px;">(${escapeHTML(card.column_name)})</span></span>
-                        <button class="btn-unlink-card" data-card-id="${card.id}" title="Desvincular" style="background: transparent; border: none; color: #fca5a5; cursor: pointer; font-size: 12px; padding: 2px 6px; transition: opacity 0.2s;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">🗑</button>
+                        ${unlinkBtnHtml}
                     </div>
                 `;
             });
@@ -283,6 +289,44 @@ class StoryDetail {
                 const isDone = task.status === 'DONE';
                 const titleStyle = isDone ? 'text-decoration: line-through; color: var(--text-muted); font-style: italic;' : 'color: var(--text-main); font-weight: 500;';
                 
+                let selectHtml = '';
+                let deleteBtnHtml = '';
+                
+                if (isDeveloper) {
+                    selectHtml = `
+                        <!-- Status Dropdown -->
+                        <select class="select-task-status form-control" data-task-id="${task.id}" style="padding: 4px 8px; font-size: 11px; width: auto; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); height: 28px;">
+                            <option value="TODO" ${task.status === 'TODO' ? 'selected' : ''}>Por hacer</option>
+                            <option value="IN_PROGRESS" ${task.status === 'IN_PROGRESS' ? 'selected' : ''}>En progreso</option>
+                            <option value="DONE" ${task.status === 'DONE' ? 'selected' : ''}>Completado</option>
+                        </select>
+                    `;
+                    deleteBtnHtml = `
+                        <!-- Delete Button -->
+                        <button class="btn-delete-task" data-task-id="${task.id}" title="Eliminar subtarea" style="background: transparent; border: none; color: #fca5a5; cursor: pointer; font-size: 12px; padding: 4px 6px; transition: opacity 0.2s; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
+                            🗑
+                        </button>
+                    `;
+                } else {
+                    let statusBadgeBg = 'rgba(255,255,255,0.05)';
+                    let statusBadgeColor = 'var(--text-muted)';
+                    let statusBadgeText = 'Por hacer';
+                    if (task.status === 'IN_PROGRESS') {
+                        statusBadgeBg = 'rgba(245, 158, 11, 0.12)';
+                        statusBadgeColor = '#fbbf24';
+                        statusBadgeText = 'En progreso';
+                    } else if (task.status === 'DONE') {
+                        statusBadgeBg = 'rgba(16, 185, 129, 0.12)';
+                        statusBadgeColor = '#34d399';
+                        statusBadgeText = 'Completado';
+                    }
+                    selectHtml = `
+                        <span style="font-size: 11px; font-weight: 500; padding: 4px 8px; border-radius: 6px; background: ${statusBadgeBg}; color: ${statusBadgeColor}; border: 1px solid ${statusBadgeColor}20;">
+                            ${statusBadgeText}
+                        </span>
+                    `;
+                }
+
                 tasksListHtml += `
                     <div class="task-item-row" data-task-id="${task.id}" style="display: flex; align-items: center; justify-content: space-between; gap: 10px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 8px 12px; font-size: 13px; transition: background 0.2s;">
                         <div style="display: flex; flex-direction: column; gap: 2px; flex-grow: 1; min-width: 0;">
@@ -293,17 +337,8 @@ class StoryDetail {
                         </div>
                         
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <!-- Status Dropdown -->
-                            <select class="select-task-status form-control" data-task-id="${task.id}" style="padding: 4px 8px; font-size: 11px; width: auto; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); height: 28px;">
-                                <option value="TODO" ${task.status === 'TODO' ? 'selected' : ''}>Por hacer</option>
-                                <option value="IN_PROGRESS" ${task.status === 'IN_PROGRESS' ? 'selected' : ''}>En progreso</option>
-                                <option value="DONE" ${task.status === 'DONE' ? 'selected' : ''}>Completado</option>
-                            </select>
-                            
-                            <!-- Delete Button -->
-                            <button class="btn-delete-task" data-task-id="${task.id}" title="Eliminar subtarea" style="background: transparent; border: none; color: #fca5a5; cursor: pointer; font-size: 12px; padding: 4px 6px; transition: opacity 0.2s; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">
-                                🗑
-                            </button>
+                            ${selectHtml}
+                            ${deleteBtnHtml}
                         </div>
                     </div>
                 `;
@@ -419,6 +454,7 @@ class StoryDetail {
                 <h4 style="font-size: 14px; font-weight: 600; border-bottom: 1px solid rgba(255, 255, 255, 0.05); padding-bottom: 8px;">Subtareas Técnicas</h4>
                 
                 <!-- Inline Create Form -->
+                ${isDeveloper ? `
                 <form id="create-task-form" style="display: flex; gap: 8px; align-items: flex-end; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 12px; margin-bottom: 8px;">
                     <div style="flex-grow: 1; display: flex; flex-direction: column; gap: 4px;">
                         <label for="new-task-title" style="font-size: 10px; color: var(--text-muted);">Nueva Subtarea *</label>
@@ -430,6 +466,7 @@ class StoryDetail {
                     </div>
                     <button type="submit" class="btn btn-accent btn-sm" style="padding: 0 12px; font-size: 12px; height: 32px; width: auto; white-space: nowrap; display: flex; align-items: center; justify-content: center; font-family: inherit;">Agregar</button>
                 </form>
+                ` : ''}
 
                 <div id="task-error-alert" class="alert alert-error" style="display: none; font-size: 11px; padding: 8px; margin-bottom: 8px;"></div>
 
@@ -444,18 +481,18 @@ class StoryDetail {
                 
                 <div class="form-group" style="margin-bottom: 0;">
                     <label class="form-label" for="edit-story-title" style="font-size: 11px;">Título *</label>
-                    <input class="form-control" type="text" id="edit-story-title" value="${escapeHTML(this.story.title)}" required style="padding: 8px 12px; font-size: 13px;">
+                    <input class="form-control" type="text" id="edit-story-title" value="${escapeHTML(this.story.title)}" required style="padding: 8px 12px; font-size: 13px;" ${isPO ? '' : 'disabled'}>
                 </div>
 
                 <div class="form-group" style="margin-bottom: 0;">
                     <label class="form-label" for="edit-story-desc" style="font-size: 11px;">Descripción</label>
-                    <textarea class="form-control" id="edit-story-desc" style="padding: 8px 12px; font-size: 13px; height: 60px; resize: vertical;">${escapeHTML(this.story.description || '')}</textarea>
+                    <textarea class="form-control" id="edit-story-desc" style="padding: 8px 12px; font-size: 13px; height: 60px; resize: vertical;" ${isPO ? '' : 'disabled'}>${escapeHTML(this.story.description || '')}</textarea>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div class="form-group" style="margin-bottom: 0;">
                         <label class="form-label" for="edit-story-priority" style="font-size: 11px;">Prioridad</label>
-                        <select class="form-control" id="edit-story-priority" style="padding: 8px 12px; font-size: 13px;">
+                        <select class="form-control" id="edit-story-priority" style="padding: 8px 12px; font-size: 13px;" ${isPO ? '' : 'disabled'}>
                             <option value="LOW" ${this.story.priority === 'LOW' ? 'selected' : ''}>Baja</option>
                             <option value="MEDIUM" ${this.story.priority === 'MEDIUM' ? 'selected' : ''}>Media</option>
                             <option value="HIGH" ${this.story.priority === 'HIGH' ? 'selected' : ''}>Alta</option>
@@ -464,20 +501,20 @@ class StoryDetail {
 
                     <div class="form-group" style="margin-bottom: 0;">
                         <label class="form-label" for="edit-story-value" style="font-size: 11px;">Valor de Negocio</label>
-                        <input class="form-control" type="number" id="edit-story-value" value="${this.story.business_value}" min="0" required style="padding: 8px 12px; font-size: 13px;">
+                        <input class="form-control" type="number" id="edit-story-value" value="${this.story.business_value}" min="0" required style="padding: 8px 12px; font-size: 13px;" ${isPO ? '' : 'disabled'}>
                     </div>
                 </div>
 
                 <div class="form-group" style="margin-bottom: 0;">
                     <label class="form-label" for="edit-story-status" style="font-size: 11px;">Estado</label>
-                    <select class="form-control" id="edit-story-status" style="padding: 8px 12px; font-size: 13px;">
+                    <select class="form-control" id="edit-story-status" style="padding: 8px 12px; font-size: 13px;" ${isPO ? '' : 'disabled'}>
                         <option value="ACTIVE" ${this.story.status === 'ACTIVE' ? 'selected' : ''}>Activa</option>
                         <option value="COMPLETED" ${this.story.status === 'COMPLETED' ? 'selected' : ''}>Completada</option>
                         <option value="ARCHIVED" ${this.story.status === 'ARCHIVED' ? 'selected' : ''}>Archivada</option>
                     </select>
                 </div>
 
-                <button type="submit" class="btn btn-accent" id="btn-update-story" style="padding: 8px 16px; font-size: 13px;">Actualizar Historia</button>
+                ${isPO ? `<button type="submit" class="btn btn-accent" id="btn-update-story" style="padding: 8px 16px; font-size: 13px;">Actualizar Historia</button>` : ''}
             </form>
 
             <!-- Linked Tasks Block -->
@@ -485,7 +522,7 @@ class StoryDetail {
                 <h4 style="font-size: 14px; font-weight: 600;">Tareas Vinculadas (${this.story.cards.length})</h4>
                 
                 <!-- Link New Card Inline -->
-                ${linkableCards.length > 0 ? `
+                ${(isPO && linkableCards.length > 0) ? `
                     <div style="display: flex; gap: 8px; align-items: center; background: rgba(255,255,255,0.01); border: 1px solid rgba(255,255,255,0.04); border-radius: 8px; padding: 12px;">
                         <select id="select-link-card" class="form-control" style="flex-grow: 1; padding: 6px 12px; font-size: 12px; height: 32px; margin-bottom: 0;">
                             ${linkableOptions}
@@ -766,7 +803,12 @@ class StoryList {
             margin-bottom: 16px;
             animation: fadeIn 0.3s ease-out forwards;
         `;
-        const activeRoleName = (this.userRole === 'PO') ? 'Product Owner 👑' : 'Developer 💻';
+        let activeRoleName = 'Developer 💻';
+        if (this.userRole === 'PO') {
+            activeRoleName = 'Product Owner 👑';
+        } else if (this.userRole === 'SM') {
+            activeRoleName = 'Scrum Master 🛠️';
+        }
         roleHeader.innerHTML = `
             <span style="color: var(--text-muted);">Rol simulado: <strong style="color: var(--text-main);">${activeRoleName}</strong></span>
             <button id="btn-toggle-role" class="btn btn-accent btn-sm" style="padding: 4px 10px; font-size: 11px; width: auto; background: var(--accent); border-radius: 6px; box-shadow: none; height: 24px; font-family: inherit;">Cambiar Rol</button>
@@ -784,6 +826,13 @@ class StoryList {
                 const data = await response.json();
                 if (data.status === 'success') {
                     this.userRole = data.role;
+                    window.currentUserRole = data.role; // Sync global role
+                    
+                    // Re-render kanban columns to show/hide role-specific buttons
+                    if (typeof window.fetchColumns === 'function') {
+                        await window.fetchColumns();
+                    }
+                    
                     // Reload current view
                     if (this.viewMode === 'detail') {
                         await this.renderDetailView();
@@ -807,6 +856,10 @@ class StoryList {
         contentEl.id = 'stories-inner-content';
         this.container.appendChild(contentEl);
 
+        if (this.viewMode === 'create' && this.userRole !== 'PO') {
+            this.viewMode = 'list';
+        }
+
         if (this.viewMode === 'create') {
             this.renderCreateForm(contentEl);
         } else if (this.viewMode === 'detail') {
@@ -824,9 +877,11 @@ class StoryList {
             align-items: center;
             margin-bottom: 20px;
         `;
+        const isPO = (this.userRole === 'PO');
+        const createBtnHtml = isPO ? `<button id="btn-open-create-story" class="btn btn-accent btn-sm" style="padding: 6px 12px; font-size: 12px; width: auto;">+ Nueva</button>` : '';
         header.innerHTML = `
             <h3 style="font-size: 18px; font-weight: 700; color: var(--text-main);">Historias de Usuario</h3>
-            <button id="btn-open-create-story" class="btn btn-accent btn-sm" style="padding: 6px 12px; font-size: 12px; width: auto;">+ Nueva</button>
+            ${createBtnHtml}
         `;
 
         contentEl.appendChild(header);

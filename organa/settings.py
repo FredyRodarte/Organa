@@ -57,6 +57,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'allauth.account.middleware.AccountMiddleware',  # Required by AllAuth
+    'apps.authentication.middleware.RolePermissionMiddleware',
 ]
 
 ROOT_URLCONF = 'organa.urls'

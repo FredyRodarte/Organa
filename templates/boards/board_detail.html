@@ -369,7 +369,7 @@
             </div>
             <div style="display: flex; gap: 12px;">
                 <button class="btn btn-outline btn-sm" style="width: auto; white-space: nowrap; border-color: rgba(139,92,246,0.3); color: #d8b4fe;" onclick="toggleStoriesSidebar()">📖 Historias de Usuario</button>
-                <button class="btn btn-accent btn-sm" style="width: auto; white-space: nowrap;" onclick="openColumnModal()">+ Nueva Columna</button>
+                <button id="btn-new-column-header" class="btn btn-accent btn-sm" style="width: auto; white-space: nowrap;" onclick="openColumnModal()">+ Nueva Columna</button>
             </div>
         </section>
 
@@ -459,6 +459,7 @@
 
     <!-- AJAX Fetch and Operations Script -->
     <script>
+        window.currentUserRole = "{{ request.user.role }}"; // e.g. 'DEV', 'PO', or 'SM'
         const BOARD_ID = {{ board.id }};
         const CSRF_TOKEN = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
         let editingColumnId = null;
@@ -517,6 +518,12 @@
         // Fetch Columns dynamically
         async function fetchColumns() {
             const container = document.getElementById('columns-container');
+            
+            // Update header button visibility based on Scrum Role
+            const newColBtn = document.getElementById('btn-new-column-header');
+            if (newColBtn) {
+                newColBtn.style.display = (window.currentUserRole === 'SM') ? 'inline-flex' : 'none';
+            }
             
             try {
                 const response = await fetch(`/boards/${BOARD_ID}/columns`);
@@ -641,6 +648,12 @@
             const modalTitle = document.getElementById('card-modal-title');
             const submitBtn = document.getElementById('card-submit-btn');
             
+            const isDev = (window.currentUserRole === 'DEV');
+            document.getElementById('card-title').disabled = !isDev;
+            document.getElementById('card-description').disabled = !isDev;
+            document.getElementById('card-priority').disabled = !isDev;
+            submitBtn.style.display = isDev ? 'block' : 'none';
+
             hideCardAlerts();
             editingCardId = null;
             document.getElementById('card-form').reset();
@@ -651,7 +664,9 @@
             submitBtn.innerText = 'Guardar Tarjeta';
             
             modal.classList.add('active');
-            document.getElementById('card-title').focus();
+            if (isDev) {
+                document.getElementById('card-title').focus();
+            }
         };
 
         window.closeCardModal = function() {
@@ -686,6 +701,12 @@
             const modalTitle = document.getElementById('card-modal-title');
             const submitBtn = document.getElementById('card-submit-btn');
             
+            const isDev = (window.currentUserRole === 'DEV');
+            document.getElementById('card-title').disabled = !isDev;
+            document.getElementById('card-description').disabled = !isDev;
+            document.getElementById('card-priority').disabled = !isDev;
+            submitBtn.style.display = isDev ? 'block' : 'none';
+
             hideCardAlerts();
             editingCardId = card.id;
             
@@ -695,11 +716,13 @@
             document.getElementById('card-description').value = card.description || '';
             document.getElementById('card-priority').value = card.priority;
             
-            modalTitle.innerText = 'Editar Tarjeta';
+            modalTitle.innerText = isDev ? 'Editar Tarjeta' : 'Detalles de la Tarjeta';
             submitBtn.innerText = 'Actualizar Tarjeta';
             
             modal.classList.add('active');
-            document.getElementById('card-title').focus();
+            if (isDev) {
+                document.getElementById('card-title').focus();
+            }
         };
 
         window.handleSubmitCard = async function(event) {

@@ -123,6 +123,9 @@ def list_stories_view(request, board_id):
     Retorna el listado de historias de usuario pertenecientes al tablero.
     """
     try:
+        from apps.authentication.services import rbac_service
+        has_metrics_permission = rbac_service.validate_permission(request.user, 'view_metrics')
+        
         stories = user_story_service.get_board_stories(request.user, board_id)
         data = [
             {
@@ -133,9 +136,9 @@ def list_stories_view(request, board_id):
                 "priority": story.priority,
                 "status": story.status,
                 "created_at": story.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                "total_tasks": story.tasks.count(),
-                "completed_tasks": story.tasks.filter(status='DONE').count(),
-                "total_hours": sum(t.estimated_hours for t in story.tasks.all()),
+                "total_tasks": story.tasks.count() if has_metrics_permission else 0,
+                "completed_tasks": story.tasks.filter(status='DONE').count() if has_metrics_permission else 0,
+                "total_hours": sum(t.estimated_hours for t in story.tasks.all()) if has_metrics_permission else 0,
                 "approval_status": story.approval_status,
                 "approved_by_email": story.approved_by.email or story.approved_by.username if story.approved_by else None,
                 "approved_at": story.approved_at.strftime("%Y-%m-%d %H:%M:%S") if story.approved_at else None,
@@ -191,6 +194,9 @@ def detail_story_view(request, story_id):
             for task in tasks
         ]
         
+        from apps.authentication.services import rbac_service
+        has_metrics_permission = rbac_service.validate_permission(request.user, 'view_metrics')
+        
         return JsonResponse({
             "status": "success",
             "user_role": getattr(request.user, 'role', 'DEV'),
@@ -203,9 +209,9 @@ def detail_story_view(request, story_id):
                 "priority": story.priority,
                 "status": story.status,
                 "created_at": story.created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                "total_tasks": len(tasks_data),
-                "completed_tasks": sum(1 for t in tasks_data if t['status'] == 'DONE'),
-                "total_hours": sum(t['estimated_hours'] for t in tasks_data),
+                "total_tasks": len(tasks_data) if has_metrics_permission else 0,
+                "completed_tasks": sum(1 for t in tasks_data if t['status'] == 'DONE') if has_metrics_permission else 0,
+                "total_hours": sum(t['estimated_hours'] for t in tasks_data) if has_metrics_permission else 0,
                 "cards": cards_data,
                 "tasks": tasks_data,
                 "approval_status": story.approval_status,
@@ -362,15 +368,29 @@ def request_changes_view(request, story_id):
 @require_http_methods(["POST"])
 def toggle_role_view(request):
     """
-    Simula el cambio de rol (PO / DEV) del usuario actual.
+    Simula el cambio de rol rotativo (DEV -> PO -> SM -> DEV) del usuario actual.
     """
     try:
+        from apps.authentication.services import rbac_service
         user = request.user
-        user.role = 'PO' if getattr(user, 'role', 'DEV') == 'DEV' else 'DEV'
-        user.save()
+        current_role = user.role
+        
+        # Rotación de rol
+        if current_role == 'DEV':
+            new_role = 'PO'
+            new_role_full = 'PRODUCT_OWNER'
+        elif current_role == 'PO':
+            new_role = 'SM'
+            new_role_full = 'SCRUM_MASTER'
+        else:
+            new_role = 'DEV'
+            new_role_full = 'DEVELOPER'
+            
+        rbac_service.assign_role(user, new_role_full)
+        
         return JsonResponse({
             "status": "success",
-            "role": user.role,
+            "role": new_role,
             "message": f"Rol cambiado a {user.get_role_display()}."
         }, status=200)
     except Exception as e:

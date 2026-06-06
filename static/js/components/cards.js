@@ -17,9 +17,11 @@ class CardCard {
     }
 
     render() {
+        const isDeveloper = (window.currentUserRole === 'DEV');
+        
         const cardEl = document.createElement('div');
         cardEl.className = 'kanban-card-item';
-        cardEl.setAttribute('draggable', 'true');
+        cardEl.setAttribute('draggable', isDeveloper ? 'true' : 'false');
         cardEl.dataset.cardId = this.card.id;
         cardEl.dataset.columnId = this.card.column_id;
         
@@ -31,7 +33,7 @@ class CardCard {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            cursor: grab;
+            cursor: ${isDeveloper ? 'grab' : 'default'};
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             position: relative;
             animation: cardFadeIn 0.3s ease-out forwards;
@@ -43,7 +45,9 @@ class CardCard {
             cardEl.style.background = 'rgba(255, 255, 255, 0.04)';
             cardEl.style.borderColor = 'rgba(99, 102, 241, 0.25)';
             cardEl.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.25), 0 0 10px rgba(99, 102, 241, 0.1)';
-            cardEl.style.transform = 'translateY(-2px)';
+            if (isDeveloper) {
+                cardEl.style.transform = 'translateY(-2px)';
+            }
         });
         cardEl.addEventListener('mouseleave', () => {
             if (cardEl.classList.contains('dragging')) return;
@@ -53,31 +57,33 @@ class CardCard {
             cardEl.style.transform = 'none';
         });
 
-        // HTML5 Drag and Drop Events
-        cardEl.addEventListener('dragstart', (e) => {
-            cardEl.classList.add('dragging');
-            cardEl.style.cursor = 'grabbing';
-            e.dataTransfer.setData('text/plain', this.card.id);
-            e.dataTransfer.setData('source-column-id', this.card.column_id);
-            e.dataTransfer.effectAllowed = 'move';
-            
-            // Set opacity inside a setTimeout so the drag ghost image retains normal opacity
-            setTimeout(() => {
-                cardEl.style.opacity = '0.35';
-                cardEl.style.borderColor = 'rgba(99, 102, 241, 0.4)';
-                cardEl.style.boxShadow = '0 0 15px rgba(99, 102, 241, 0.2)';
-            }, 0);
-        });
+        // HTML5 Drag and Drop Events (only if Developer)
+        if (isDeveloper) {
+            cardEl.addEventListener('dragstart', (e) => {
+                cardEl.classList.add('dragging');
+                cardEl.style.cursor = 'grabbing';
+                e.dataTransfer.setData('text/plain', this.card.id);
+                e.dataTransfer.setData('source-column-id', this.card.column_id);
+                e.dataTransfer.effectAllowed = 'move';
+                
+                // Set opacity inside a setTimeout so the drag ghost image retains normal opacity
+                setTimeout(() => {
+                    cardEl.style.opacity = '0.35';
+                    cardEl.style.borderColor = 'rgba(99, 102, 241, 0.4)';
+                    cardEl.style.boxShadow = '0 0 15px rgba(99, 102, 241, 0.2)';
+                }, 0);
+            });
 
-        cardEl.addEventListener('dragend', () => {
-            cardEl.classList.remove('dragging');
-            cardEl.style.cursor = 'grab';
-            cardEl.style.opacity = '1';
-            cardEl.style.borderColor = 'rgba(255, 255, 255, 0.05)';
-            cardEl.style.background = 'rgba(255, 255, 255, 0.02)';
-            cardEl.style.boxShadow = 'none';
-            cardEl.style.transform = 'none';
-        });
+            cardEl.addEventListener('dragend', () => {
+                cardEl.classList.remove('dragging');
+                cardEl.style.cursor = 'grab';
+                cardEl.style.opacity = '1';
+                cardEl.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                cardEl.style.background = 'rgba(255, 255, 255, 0.02)';
+                cardEl.style.boxShadow = 'none';
+                cardEl.style.transform = 'none';
+            });
+        }
 
         // Priority badge attributes
         let badgeBg = 'rgba(255, 255, 255, 0.06)';
@@ -112,15 +118,35 @@ class CardCard {
             moveOptionsHtml += `<option value="${col.id}">${escapeHTML(col.name)}</option>`;
         });
 
+        // Hide edit/delete actions for non-developers
+        let actionsHtml = '';
+        if (isDeveloper) {
+            actionsHtml = `
+                <div class="card-actions" style="display: flex; gap: 6px; align-items: center; opacity: 0.7; transition: opacity 0.2s;">
+                    <button class="btn-card-edit" title="Editar tarea" style="background: transparent; border: none; color: #a5b4fc; cursor: pointer; font-size: 12px; padding: 2px; transition: color 0.2s;">✎</button>
+                    <button class="btn-card-delete" title="Eliminar tarea" style="background: transparent; border: none; color: #fca5a5; cursor: pointer; font-size: 12px; padding: 2px; transition: color 0.2s;">🗑</button>
+                </div>
+            `;
+        }
+
+        // Hide move dropdown for non-developers
+        let selectHtml = '';
+        if (isDeveloper && otherColumns.length > 0) {
+            selectHtml = `
+                <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.03); padding-top: 8px;">
+                    <select class="btn-card-move-select" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px; color: var(--text-muted); font-size: 11px; padding: 2px 6px; outline: none; cursor: pointer; max-width: 110px; transition: all 0.2s;" onfocus="this.style.borderColor='rgba(99, 102, 241, 0.4)'" onblur="this.style.borderColor='rgba(255, 255, 255, 0.08)'">
+                        ${moveOptionsHtml}
+                    </select>
+                </div>
+            `;
+        }
+
         cardEl.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px;">
                 <span style="display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 8px; background: ${badgeBg}; color: ${badgeColor}; border: ${badgeBorder}; text-transform: uppercase;">
                     ${priorityLabel}
                 </span>
-                <div class="card-actions" style="display: flex; gap: 6px; align-items: center; opacity: 0.7; transition: opacity 0.2s;">
-                    <button class="btn-card-edit" title="Editar tarea" style="background: transparent; border: none; color: #a5b4fc; cursor: pointer; font-size: 12px; padding: 2px; transition: color 0.2s;">✎</button>
-                    <button class="btn-card-delete" title="Eliminar tarea" style="background: transparent; border: none; color: #fca5a5; cursor: pointer; font-size: 12px; padding: 2px; transition: color 0.2s;">🗑</button>
-                </div>
+                ${actionsHtml}
             </div>
             ${this.card.user_story_title ? `
                 <div style="display: inline-flex; align-items: center; font-size: 10px; font-weight: 500; color: #d8b4fe; background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 6px; padding: 2px 6px; width: fit-content; margin-top: 2px;">
@@ -129,13 +155,7 @@ class CardCard {
             ` : ''}
             <h4 style="font-size: 14px; font-weight: 600; color: var(--text-main); margin: 0; line-height: 1.4;">${escapedTitle}</h4>
             ${escapedDesc ? `<p style="font-size: 12px; color: var(--text-muted); margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5;">${escapedDesc}</p>` : ''}
-            <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.03); padding-top: 8px;">
-                ${otherColumns.length > 0 ? `
-                    <select class="btn-card-move-select" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px; color: var(--text-muted); font-size: 11px; padding: 2px 6px; outline: none; cursor: pointer; max-width: 110px; transition: all 0.2s;" onfocus="this.style.borderColor='rgba(99, 102, 241, 0.4)'" onblur="this.style.borderColor='rgba(255, 255, 255, 0.08)'">
-                        ${moveOptionsHtml}
-                    </select>
-                ` : ''}
-            </div>
+            ${selectHtml}
         `;
 
         // Event Listeners

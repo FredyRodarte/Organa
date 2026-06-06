@@ -48,6 +48,28 @@ class ColumnCard {
         card.className = 'column-card';
         card.style.animation = 'fadeIn 0.4s ease-out forwards';
         
+        const isScrumMaster = (window.currentUserRole === 'SM');
+        const isDeveloper = (window.currentUserRole === 'DEV');
+        
+        let headerActionsHtml = '';
+        if (isScrumMaster) {
+            headerActionsHtml = `
+                ${this.index > 0 ? `<button class="btn-move-left" title="Mover izquierda" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px 6px; transition: color 0.2s;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'">←</button>` : ''}
+                ${this.index < this.totalColumns - 1 ? `<button class="btn-move-right" title="Mover derecha" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px 6px; transition: color 0.2s;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'">→</button>` : ''}
+                <button class="btn-col-edit" title="Editar columna" style="background: transparent; border: none; color: #a5b4fc; cursor: pointer; font-size: 13px; padding: 2px 4px; transition: opacity 0.2s; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">✎</button>
+                <button class="btn-col-delete" title="Eliminar columna" style="background: transparent; border: none; color: #fca5a5; cursor: pointer; font-size: 13px; padding: 2px 4px; transition: opacity 0.2s; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">🗑</button>
+            `;
+        }
+
+        let addCardHtml = '';
+        if (isDeveloper) {
+            addCardHtml = `
+                <button class="btn-add-card" title="Nueva tarea" style="width: 100%; background: transparent; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 10px; color: var(--text-muted); cursor: pointer; font-size: 13px; padding: 10px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; margin-top: auto;" onmouseover="this.style.borderColor='rgba(99, 102, 241, 0.3)'; this.style.color='var(--text-main)'; this.style.background='rgba(255,255,255,0.01)'" onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.1)'; this.style.color='var(--text-muted)'; this.style.background='transparent'">
+                    + Nueva Tarjeta
+                </button>
+            `;
+        }
+
         // Setup DOM inner HTML
         card.innerHTML = `
             <div class="column-header" style="margin-bottom: 16px;">
@@ -55,10 +77,7 @@ class ColumnCard {
                     <span style="color: ${dotColor}; margin-right: 6px;">●</span> ${name}
                 </span>
                 <div style="display: flex; gap: 4px; align-items: center;">
-                    ${this.index > 0 ? `<button class="btn-move-left" title="Mover izquierda" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px 6px; transition: color 0.2s;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'">←</button>` : ''}
-                    ${this.index < this.totalColumns - 1 ? `<button class="btn-move-right" title="Mover derecha" style="background: transparent; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 2px 6px; transition: color 0.2s;" onmouseover="this.style.color='var(--text-main)'" onmouseout="this.style.color='var(--text-muted)'">→</button>` : ''}
-                    <button class="btn-col-edit" title="Editar columna" style="background: transparent; border: none; color: #a5b4fc; cursor: pointer; font-size: 13px; padding: 2px 4px; transition: opacity 0.2s; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">✎</button>
-                    <button class="btn-col-delete" title="Eliminar columna" style="background: transparent; border: none; color: #fca5a5; cursor: pointer; font-size: 13px; padding: 2px 4px; transition: opacity 0.2s; opacity: 0.7;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'">🗑</button>
+                    ${headerActionsHtml}
                     <span class="column-badge" id="column-badge-${this.column.id}" style="margin-left: 6px;">0</span>
                 </div>
             </div>
@@ -66,9 +85,7 @@ class ColumnCard {
             <div class="column-placeholder" id="column-placeholder-${this.column.id}" style="display: flex; align-items: center; justify-content: center; height: 80px; border: 1px dashed rgba(255, 255, 255, 0.05); border-radius: 12px; font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
                 No hay tareas
             </div>
-            <button class="btn-add-card" title="Nueva tarea" style="width: 100%; background: transparent; border: 1px dashed rgba(255, 255, 255, 0.1); border-radius: 10px; color: var(--text-muted); cursor: pointer; font-size: 13px; padding: 10px; transition: all 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; margin-top: auto;" onmouseover="this.style.borderColor='rgba(99, 102, 241, 0.3)'; this.style.color='var(--text-main)'; this.style.background='rgba(255,255,255,0.01)'" onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.1)'; this.style.color='var(--text-muted)'; this.style.background='transparent'">
-                + Nueva Tarjeta
-            </button>
+            ${addCardHtml}
         `;
 
         // Attach Reordering event listeners
@@ -92,69 +109,71 @@ class ColumnCard {
             }
         };
 
-        // Drag and Drop Listeners for Column Card Containers
-        cardContainer.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            const dragging = document.querySelector('.dragging');
-            if (dragging) {
-                const afterElement = getDragAfterElement(cardContainer, e.clientY);
-                if (afterElement == null) {
-                    cardContainer.appendChild(dragging);
-                } else {
-                    cardContainer.insertBefore(dragging, afterElement);
+        // Drag and Drop Listeners for Column Card Containers (only if Developer)
+        if (isDeveloper) {
+            cardContainer.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const dragging = document.querySelector('.dragging');
+                if (dragging) {
+                    const afterElement = getDragAfterElement(cardContainer, e.clientY);
+                    if (afterElement == null) {
+                        cardContainer.appendChild(dragging);
+                    } else {
+                        cardContainer.insertBefore(dragging, afterElement);
+                    }
+                    updateBadgeAndPlaceholder();
                 }
-                updateBadgeAndPlaceholder();
-            }
-        });
+            });
 
-        cardContainer.addEventListener('dragenter', (e) => {
-            e.preventDefault();
-            card.style.background = 'rgba(255, 255, 255, 0.02)';
-            card.style.borderColor = 'rgba(99, 102, 241, 0.15)';
-        });
+            cardContainer.addEventListener('dragenter', (e) => {
+                e.preventDefault();
+                card.style.background = 'rgba(255, 255, 255, 0.02)';
+                card.style.borderColor = 'rgba(99, 102, 241, 0.15)';
+            });
 
-        cardContainer.addEventListener('dragleave', () => {
-            card.style.background = 'rgba(255, 255, 255, 0.01)';
-            card.style.borderColor = 'rgba(255, 255, 255, 0.04)';
-        });
+            cardContainer.addEventListener('dragleave', () => {
+                card.style.background = 'rgba(255, 255, 255, 0.01)';
+                card.style.borderColor = 'rgba(255, 255, 255, 0.04)';
+            });
 
-        cardContainer.addEventListener('drop', async (e) => {
-            e.preventDefault();
-            card.style.background = 'rgba(255, 255, 255, 0.01)';
-            card.style.borderColor = 'rgba(255, 255, 255, 0.04)';
-            
-            const cardId = parseInt(e.dataTransfer.getData('text/plain'));
-            const sourceColId = parseInt(e.dataTransfer.getData('source-column-id'));
-            const targetColId = this.column.id;
-            
-            if (!cardId) return;
+            cardContainer.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                card.style.background = 'rgba(255, 255, 255, 0.01)';
+                card.style.borderColor = 'rgba(255, 255, 255, 0.04)';
+                
+                const cardId = parseInt(e.dataTransfer.getData('text/plain'));
+                const sourceColId = parseInt(e.dataTransfer.getData('source-column-id'));
+                const targetColId = this.column.id;
+                
+                if (!cardId) return;
 
-            // Find new position
-            const cardsElements = [...cardContainer.querySelectorAll('.kanban-card-item')];
-            const newPosition = cardsElements.findIndex(el => parseInt(el.dataset.cardId) === cardId);
+                // Find new position
+                const cardsElements = [...cardContainer.querySelectorAll('.kanban-card-item')];
+                const newPosition = cardsElements.findIndex(el => parseInt(el.dataset.cardId) === cardId);
 
-            if (newPosition !== -1) {
-                // Update badge and placeholder of the target column
-                updateBadgeAndPlaceholder();
+                if (newPosition !== -1) {
+                    // Update badge and placeholder of the target column
+                    updateBadgeAndPlaceholder();
 
-                // If source column is different, update its badge and placeholder too
-                if (sourceColId !== targetColId) {
-                    const srcContainer = document.getElementById(`column-cards-${sourceColId}`);
-                    const srcPlaceholder = document.getElementById(`column-placeholder-${sourceColId}`);
-                    const srcBadge = document.getElementById(`column-badge-${sourceColId}`);
-                    if (srcContainer && srcPlaceholder && srcBadge) {
-                        const srcCardCount = srcContainer.querySelectorAll('.kanban-card-item').length;
-                        srcBadge.innerText = srcCardCount;
-                        srcPlaceholder.style.display = srcCardCount === 0 ? 'flex' : 'none';
+                    // If source column is different, update its badge and placeholder too
+                    if (sourceColId !== targetColId) {
+                        const srcContainer = document.getElementById(`column-cards-${sourceColId}`);
+                        const srcPlaceholder = document.getElementById(`column-placeholder-${sourceColId}`);
+                        const srcBadge = document.getElementById(`column-badge-${sourceColId}`);
+                        if (srcContainer && srcPlaceholder && srcBadge) {
+                            const srcCardCount = srcContainer.querySelectorAll('.kanban-card-item').length;
+                            srcBadge.innerText = srcCardCount;
+                            srcPlaceholder.style.display = srcCardCount === 0 ? 'flex' : 'none';
+                        }
+                    }
+
+                    // Trigger persist
+                    if (typeof window.handleMoveCard === 'function') {
+                        await window.handleMoveCard(cardId, sourceColId, targetColId, newPosition);
                     }
                 }
-
-                // Trigger persist
-                if (typeof window.handleMoveCard === 'function') {
-                    await window.handleMoveCard(cardId, sourceColId, targetColId, newPosition);
-                }
-            }
-        });
+            });
+        }
 
         // Trigger cards load asynchronously
         setTimeout(() => {

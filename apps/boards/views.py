@@ -42,6 +42,14 @@ def create_board_view(request):
     
     try:
         board = board_service.create_board(request.user, name, description)
+        
+        from apps.authentication.services import rbac_service
+        rbac_service.log_action(
+            user=request.user,
+            action='BOARD_CREATE',
+            description=f"Tablero '{board.name}' (ID: {board.id}) creado."
+        )
+        
         return JsonResponse({
             "status": "success",
             "message": "Tablero creado correctamente.",
@@ -89,6 +97,14 @@ def update_board_view(request, board_id):
     
     try:
         board = board_service.update_board(request.user, board_id, name, description)
+        
+        from apps.authentication.services import rbac_service
+        rbac_service.log_action(
+            user=request.user,
+            action='BOARD_UPDATE',
+            description=f"Tablero '{board.name}' (ID: {board.id}) modificado."
+        )
+        
         return JsonResponse({
             "status": "success",
             "message": "Tablero modificado correctamente.",
@@ -114,7 +130,18 @@ def delete_board_view(request, board_id):
     Elimina el tablero especificado tras validar propiedad en la Service Layer.
     """
     try:
+        from apps.boards.models import KanbanBoard
+        from django.shortcuts import get_object_or_404
+        from apps.authentication.services import rbac_service
+        board = get_object_or_404(KanbanBoard, id=board_id)
+        
         board_service.delete_board(request.user, board_id)
+        
+        rbac_service.log_action(
+            user=request.user,
+            action='BOARD_DELETE',
+            description=f"Tablero '{board.name}' (ID: {board.id}) eliminado."
+        )
         return JsonResponse({
             "status": "success",
             "message": "Tablero eliminado correctamente."
