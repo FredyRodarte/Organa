@@ -34,6 +34,21 @@ class KanbanCard(models.Model):
         null=True
     )
     position = models.PositiveIntegerField(default=0)
+    assigned_to = models.ForeignKey(
+        'authentication.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_cards'
+    )
+    assigned_at = models.DateTimeField(null=True, blank=True)
+    assigned_by = models.ForeignKey(
+        'authentication.CustomUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_by_cards'
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

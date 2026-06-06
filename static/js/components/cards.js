@@ -133,10 +133,41 @@ class CardCard {
         let selectHtml = '';
         if (isDeveloper && otherColumns.length > 0) {
             selectHtml = `
-                <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.03); padding-top: 8px;">
-                    <select class="btn-card-move-select" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px; color: var(--text-muted); font-size: 11px; padding: 2px 6px; outline: none; cursor: pointer; max-width: 110px; transition: all 0.2s;" onfocus="this.style.borderColor='rgba(99, 102, 241, 0.4)'" onblur="this.style.borderColor='rgba(255, 255, 255, 0.08)'">
-                        ${moveOptionsHtml}
-                    </select>
+                <select class="btn-card-move-select" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 6px; color: var(--text-muted); font-size: 11px; padding: 2px 6px; outline: none; cursor: pointer; max-width: 110px; transition: all 0.2s;" onfocus="this.style.borderColor='rgba(99, 102, 241, 0.4)'" onblur="this.style.borderColor='rgba(255, 255, 255, 0.08)'">
+                    ${moveOptionsHtml}
+                </select>
+            `;
+        }
+
+        // Render assignee avatar/initials
+        let assigneeHtml = '';
+        if (this.card.assigned_to_email) {
+            const emailParts = this.card.assigned_to_email.split('@')[0];
+            const initials = emailParts.substring(0, 2).toUpperCase();
+            if (this.card.assigned_to_avatar) {
+                assigneeHtml = `
+                    <div class="card-assignee-avatar" title="Asignado a: ${escapeHTML(this.card.assigned_to_email)}" style="width: 24px; height: 24px; border-radius: 50%; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.15); display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 10px; font-weight: bold; color: var(--text-main);">
+                        <img src="${escapeHTML(this.card.assigned_to_avatar)}" alt="${initials}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                        <span style="display: none;">${initials}</span>
+                    </div>
+                `;
+            } else {
+                assigneeHtml = `
+                    <div class="card-assignee-avatar" title="Asignado a: ${escapeHTML(this.card.assigned_to_email)}" style="width: 24px; height: 24px; border-radius: 50%; background: rgba(99, 102, 241, 0.2); border: 1px solid rgba(99, 102, 241, 0.4); display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 10px; font-weight: 600; color: #a5b4fc;">
+                        <span>${initials}</span>
+                    </div>
+                `;
+            }
+        }
+
+        let footerHtml = '';
+        if (assigneeHtml || selectHtml) {
+            footerHtml = `
+                <div class="card-footer-layout" style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; border-top: 1px solid rgba(255, 255, 255, 0.03); padding-top: 8px; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        ${assigneeHtml}
+                    </div>
+                    ${selectHtml ? `<div style="margin-left: auto;">${selectHtml}</div>` : ''}
                 </div>
             `;
         }
@@ -155,7 +186,7 @@ class CardCard {
             ` : ''}
             <h4 style="font-size: 14px; font-weight: 600; color: var(--text-main); margin: 0; line-height: 1.4;">${escapedTitle}</h4>
             ${escapedDesc ? `<p style="font-size: 12px; color: var(--text-muted); margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5;">${escapedDesc}</p>` : ''}
-            ${selectHtml}
+            ${footerHtml}
         `;
 
         // Event Listeners

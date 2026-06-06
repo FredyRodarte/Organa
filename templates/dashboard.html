@@ -449,6 +449,15 @@
             <div class="no-boards">Cargando tus tableros...</div>
         </div>
 
+        <!-- Assigned Tasks Section -->
+        <section class="section-title-bar" style="margin-top: 40px;">
+            <h2 class="section-title">Mis Tareas Asignadas</h2>
+        </section>
+
+        <div id="assigned-tasks-container" style="display: flex; flex-direction: column; gap: 16px; margin-bottom: 36px;">
+            <div class="no-boards" style="width: 100%;">Cargando tus tareas asignadas...</div>
+        </div>
+
         <!-- Footer -->
         <footer class="footer-bar">
             <span style="font-size: 13px; color: var(--text-muted);">Conectado a PostgreSQL</span>
@@ -641,8 +650,122 @@
             }
         };
 
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, 
+                tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+            );
+        }
+
+        // Fetch assigned tasks
+        async function fetchAssignedTasks() {
+            const container = document.getElementById('assigned-tasks-container');
+            const userId = "{{ user.id }}";
+            
+            try {
+                const response = await fetch(`/cards/users/${userId}/cards`);
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    const cards = data.cards || [];
+                    if (cards.length === 0) {
+                        container.innerHTML = `
+                            <div class="no-boards" style="width: 100%;">
+                                No tienes tareas asignadas en este momento.
+                            </div>
+                        `;
+                        return;
+                    }
+                    
+                    container.innerHTML = '';
+                    cards.forEach(card => {
+                        let badgeBg = 'rgba(255, 255, 255, 0.06)';
+                        let badgeColor = 'var(--text-muted)';
+                        let badgeBorder = '1px solid rgba(255, 255, 255, 0.1)';
+                        let priorityLabel = 'Baja';
+
+                        if (card.priority === 'HIGH') {
+                            badgeBg = 'rgba(239, 68, 68, 0.12)';
+                            badgeColor = '#fca5a5';
+                            badgeBorder = '1px solid rgba(239, 68, 68, 0.25)';
+                            priorityLabel = 'Alta';
+                        } else if (card.priority === 'MEDIUM') {
+                            badgeBg = 'rgba(245, 158, 11, 0.12)';
+                            badgeColor = '#fde047';
+                            badgeBorder = '1px solid rgba(245, 158, 11, 0.25)';
+                            priorityLabel = 'Media';
+                        } else {
+                            badgeBg = 'rgba(99, 102, 241, 0.12)';
+                            badgeColor = '#a5b4fc';
+                            badgeBorder = '1px solid rgba(99, 102, 241, 0.25)';
+                            priorityLabel = 'Baja';
+                        }
+
+                        const taskEl = document.createElement('a');
+                        taskEl.href = `/boards/${card.board_id}`;
+                        taskEl.className = 'assigned-task-item';
+                        taskEl.style.cssText = `
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            background: rgba(255, 255, 255, 0.02);
+                            border: 1px solid rgba(255, 255, 255, 0.05);
+                            padding: 16px 24px;
+                            border-radius: 16px;
+                            text-decoration: none;
+                            color: var(--text-main);
+                            transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+                        `;
+                        
+                        taskEl.addEventListener('mouseenter', () => {
+                            taskEl.style.borderColor = 'var(--accent)';
+                            taskEl.style.background = 'rgba(255, 255, 255, 0.04)';
+                            taskEl.style.boxShadow = '0 6px 20px rgba(99, 102, 241, 0.08)';
+                            taskEl.style.transform = 'translateY(-2px)';
+                        });
+                        
+                        taskEl.addEventListener('mouseleave', () => {
+                            taskEl.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                            taskEl.style.background = 'rgba(255, 255, 255, 0.02)';
+                            taskEl.style.boxShadow = 'none';
+                            taskEl.style.transform = 'none';
+                        });
+
+                        taskEl.innerHTML = `
+                            <div style="display: flex; flex-direction: column; gap: 4px;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style="font-size: 15px; font-weight: 600;">${escapeHTML(card.title)}</span>
+                                    <span style="font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 8px; background: ${badgeBg}; color: ${badgeColor}; border: ${badgeBorder}; text-transform: uppercase;">
+                                        ${priorityLabel}
+                                    </span>
+                                </div>
+                                <div style="display: flex; align-items: center; gap: 12px; font-size: 12px; color: var(--text-muted);">
+                                    <span>Tablero: <strong style="color: #a5b4fc;">${escapeHTML(card.board_name)}</strong></span>
+                                    <span>•</span>
+                                    <span>Columna: <strong style="color: #a5b4fc;">${escapeHTML(card.column_name)}</strong></span>
+                                    ${card.user_story_title ? `
+                                        <span>•</span>
+                                        <span style="color: #d8b4fe;">📖 H.U.: ${escapeHTML(card.user_story_title)}</span>
+                                    ` : ''}
+                                </div>
+                            </div>
+                            <div style="font-size: 18px; color: var(--text-muted); opacity: 0.5;">→</div>
+                        `;
+                        container.appendChild(taskEl);
+                    });
+                } else {
+                    container.innerHTML = `<div class="no-boards" style="width: 100%;">Error al cargar tareas asignadas: ${data.message}</div>`;
+                }
+            } catch (err) {
+                container.innerHTML = `<div class="no-boards" style="width: 100%;">Error de conexión al cargar tareas.</div>`;
+            }
+        }
+
         // Initial loading trigger
-        document.addEventListener('DOMContentLoaded', fetchBoards);
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchBoards();
+            fetchAssignedTasks();
+        });
     </script>
 </body>
 </html>

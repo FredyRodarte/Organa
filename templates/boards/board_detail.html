@@ -433,13 +433,21 @@
                     <textarea class="form-control" id="card-description" placeholder="Escribe detalles sobre esta tarea..." style="height: 100px; resize: vertical;"></textarea>
                 </div>
 
-                <div class="form-group">
-                    <label class="form-label" for="card-priority">Prioridad</label>
-                    <select class="form-control" id="card-priority">
-                        <option value="LOW">Baja</option>
-                        <option value="MEDIUM" selected>Media</option>
-                        <option value="HIGH">Alta</option>
-                    </select>
+                <div class="form-group" style="display: flex; gap: 16px;">
+                    <div style="flex: 1;">
+                        <label class="form-label" for="card-priority">Prioridad</label>
+                        <select class="form-control" id="card-priority">
+                            <option value="LOW">Baja</option>
+                            <option value="MEDIUM" selected>Media</option>
+                            <option value="HIGH">Alta</option>
+                        </select>
+                    </div>
+                    <div style="flex: 1;">
+                        <label class="form-label" for="card-assignee">Responsable</label>
+                        <select class="form-control" id="card-assignee">
+                            <option value="">-- Sin asignar --</option>
+                        </select>
+                    </div>
                 </div>
 
                 <button type="submit" class="btn btn-accent" id="card-submit-btn">Guardar Tarjeta</button>
@@ -654,6 +662,14 @@
             document.getElementById('card-priority').disabled = !isDev;
             submitBtn.style.display = isDev ? 'block' : 'none';
 
+            // Reset assignee selector
+            window.editingCardOriginalAssigneeId = null;
+            const assigneeSelect = document.getElementById('card-assignee');
+            if (assigneeSelect) {
+                assigneeSelect.value = '';
+                assigneeSelect.disabled = true; // Disabled for new cards
+            }
+
             hideCardAlerts();
             editingCardId = null;
             document.getElementById('card-form').reset();
@@ -706,6 +722,14 @@
             document.getElementById('card-description').disabled = !isDev;
             document.getElementById('card-priority').disabled = !isDev;
             submitBtn.style.display = isDev ? 'block' : 'none';
+
+            // Set assignee selector values and permissions
+            window.editingCardOriginalAssigneeId = card.assigned_to_id;
+            const assigneeSelect = document.getElementById('card-assignee');
+            if (assigneeSelect) {
+                assigneeSelect.value = card.assigned_to_id || '';
+                assigneeSelect.disabled = (window.currentUserRole !== 'SM');
+            }
 
             hideCardAlerts();
             editingCardId = card.id;
@@ -857,7 +881,92 @@
         }
         window.toggleStoriesSidebar = toggleStoriesSidebar;
 
+        // Fetch System Users
+        let systemUsers = [];
+        async function fetchSystemUsers() {
+            try {
+                const response = await fetch('/users/');
+                const data = await response.json();
+                if (data.status === 'success') {
+                    systemUsers = data.users || [];
+                    const select = document.getElementById('card-assignee');
+                    if (select) {
+                        select.innerHTML = '<option value="">-- Sin asignar --</option>';
+                        systemUsers.forEach(u => {
+                            const option = document.createElement('option');
+                            option.value = u.id;
+                            option.textContent = `${u.email} (${u.role})`;
+                            select.appendChild(option);
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error("Error al cargar usuarios:", e);
+            }
+        }
+
+        // Assignee Selection Change Handler
+        const assigneeSelectEl = document.getElementById('card-assignee');
+        if (assigneeSelectEl) {
+            assigneeSelectEl.addEventListener('change', async (e) => {
+                if (!editingCardId) return;
+                const newAssigneeId = e.target.value;
+                const originalAssigneeId = window.editingCardOriginalAssigneeId;
+                
+                if (newAssigneeId == originalAssigneeId) return;
+                
+                e.target.disabled = true;
+                hideCardAlerts();
+                
+                let url = '';
+                let body = {};
+                
+                if (!newAssigneeId) {
+                    url = `/cards/${editingCardId}/unassign`;
+                } else if (!originalAssigneeId) {
+                    url = `/cards/${editingCardId}/assign`;
+                    body = { user_id: parseInt(newAssigneeId) };
+                } else {
+                    url = `/cards/${editingCardId}/reassign`;
+                    body = { user_id: parseInt(newAssigneeId) };
+                }
+                
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': CSRF_TOKEN
+                        },
+                        body: JSON.stringify(body)
+                    });
+                    const data = await response.json();
+                    if (response.ok && data.status === 'success') {
+                        showCardSuccessAlert(data.message);
+                        window.editingCardOriginalAssigneeId = newAssigneeId ? parseInt(newAssigneeId) : null;
+                        const columnId = document.getElementById('card-form-column-id').value;
+                        if (window.reloadColumnCards) {
+                            window.reloadColumnCards(columnId);
+                        } else {
+                            await fetchColumns();
+                        }
+                    } else {
+                        showCardErrorAlert(data.message || 'Error al cambiar la asignación.');
+                        e.target.value = originalAssigneeId || '';
+                    }
+                } catch (err) {
+                    showCardErrorAlert('Error de conexión con el servidor.');
+                    e.target.value = originalAssigneeId || '';
+                } finally {
+                    e.target.disabled = (window.currentUserRole !== 'SM');
+                }
+            });
+        }
+ 
         // Initialize loader on load
-        document.addEventListener('DOMContentLoaded', fetchColumns);
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchColumns();
+            fetchSystemUsers();
+        });
     </script>
 </html>

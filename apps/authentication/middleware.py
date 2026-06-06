@@ -37,6 +37,11 @@ PERMISSION_MAP = {
     'create_task': 'create_tasks',
     'update_task': 'update_tasks',
     'delete_task': 'update_tasks',
+    
+    # Asignaciones (Scrum Master)
+    'assign_card': 'manage_flow',
+    'reassign_card': 'manage_flow',
+    'unassign_card': 'manage_flow',
 }
 
 class RolePermissionMiddleware:

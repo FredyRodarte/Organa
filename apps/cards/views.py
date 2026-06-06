@@ -3,7 +3,7 @@ from django.http import JsonResponse, Http404
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.core.exceptions import ValidationError, PermissionDenied
-from apps.cards.services import card_service
+from apps.cards.services import card_service, assignment_service
 
 @login_required
 @require_http_methods(["POST"])
@@ -38,6 +38,9 @@ def create_card_view(request):
                 "description": card.description or "",
                 "priority": card.priority,
                 "status": card.status,
+                "assigned_to_id": card.assigned_to_id,
+                "assigned_to_email": card.assigned_to.email if card.assigned_to else "",
+                "assigned_to_avatar": card.assigned_to.avatar_url if card.assigned_to else "",
                 "created_at": card.created_at.strftime("%Y-%m-%d %H:%M:%S")
             }
         }, status=201)
@@ -83,7 +86,10 @@ def update_card_view(request):
                 "title": card.title,
                 "description": card.description or "",
                 "priority": card.priority,
-                "status": card.status
+                "status": card.status,
+                "assigned_to_id": card.assigned_to_id,
+                "assigned_to_email": card.assigned_to.email if card.assigned_to else "",
+                "assigned_to_avatar": card.assigned_to.avatar_url if card.assigned_to else ""
             }
         }, status=200)
     except ValidationError as e:
@@ -175,6 +181,9 @@ def list_cards_view(request, column_id):
                 "description": card.description or "",
                 "priority": card.priority,
                 "status": card.status,
+                "assigned_to_id": card.assigned_to_id,
+                "assigned_to_email": card.assigned_to.email if card.assigned_to else "",
+                "assigned_to_avatar": card.assigned_to.avatar_url if card.assigned_to else "",
                 "created_at": card.created_at.strftime("%Y-%m-%d %H:%M:%S")
             }
             for card in cards
@@ -214,4 +223,131 @@ def delete_card_view(request):
         return JsonResponse({"status": "error", "message": "La tarjeta especificada no existe."}, status=404)
     except Exception as e:
         return JsonResponse({"status": "error", "message": f"Error al eliminar la tarjeta: {str(e)}"}, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def assign_card_view(request, card_id):
+    """
+    Asigna un responsable a una tarjeta Kanban.
+    """
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"status": "error", "message": "Formato de datos JSON inválido."}, status=400)
+        
+    user_id = data.get("user_id")
+    try:
+        card = assignment_service.assign_user(request.user, card_id, user_id)
+        return JsonResponse({
+            "status": "success",
+            "message": "Usuario asignado correctamente.",
+            "card": {
+                "id": card.id,
+                "assigned_to_id": card.assigned_to_id,
+                "assigned_to_email": card.assigned_to.email if card.assigned_to else ""
+            }
+        }, status=200)
+    except ValidationError as e:
+        msg = e.messages[0] if hasattr(e, 'messages') else str(e)
+        return JsonResponse({"status": "error", "message": msg}, status=400)
+    except PermissionDenied as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=403)
+    except Http404:
+        return JsonResponse({"status": "error", "message": "La tarjeta especificada no existe."}, status=404)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"Error al asignar usuario: {str(e)}"}, status=500)
+
+@login_required
+@require_http_methods(["PUT", "POST"])
+def reassign_card_view(request, card_id):
+    """
+    Reasigna el responsable de una tarjeta Kanban.
+    """
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"status": "error", "message": "Formato de datos JSON inválido."}, status=400)
+        
+    user_id = data.get("user_id")
+    try:
+        card = assignment_service.reassign_user(request.user, card_id, user_id)
+        return JsonResponse({
+            "status": "success",
+            "message": "Tarjeta reasignada correctamente.",
+            "card": {
+                "id": card.id,
+                "assigned_to_id": card.assigned_to_id,
+                "assigned_to_email": card.assigned_to.email if card.assigned_to else ""
+            }
+        }, status=200)
+    except ValidationError as e:
+        msg = e.messages[0] if hasattr(e, 'messages') else str(e)
+        return JsonResponse({"status": "error", "message": msg}, status=400)
+    except PermissionDenied as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=403)
+    except Http404:
+        return JsonResponse({"status": "error", "message": "La tarjeta especificada no existe."}, status=404)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"Error al reasignar usuario: {str(e)}"}, status=500)
+
+@login_required
+@require_http_methods(["DELETE", "POST"])
+def unassign_card_view(request, card_id):
+    """
+    Desasigna el responsable de una tarjeta Kanban.
+    """
+    try:
+        card = assignment_service.unassign_user(request.user, card_id)
+        return JsonResponse({
+            "status": "success",
+            "message": "Asignación removida correctamente.",
+            "card": {
+                "id": card.id,
+                "assigned_to_id": None,
+                "assigned_to_email": ""
+            }
+        }, status=200)
+    except ValidationError as e:
+        msg = e.messages[0] if hasattr(e, 'messages') else str(e)
+        return JsonResponse({"status": "error", "message": msg}, status=400)
+    except PermissionDenied as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=403)
+    except Http404:
+        return JsonResponse({"status": "error", "message": "La tarjeta especificada no existe."}, status=404)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"Error al remover asignación: {str(e)}"}, status=500)
+
+@login_required
+@require_http_methods(["GET"])
+def get_user_cards_view(request, user_id):
+    """
+    Retorna el listado de tarjetas Kanban asignadas a un usuario.
+    """
+    try:
+        cards = assignment_service.get_user_cards(request.user, user_id)
+        data = [
+            {
+                "id": card.id,
+                "column_id": card.column_id,
+                "column_name": card.column.name,
+                "board_id": card.column.board_id,
+                "board_name": card.column.board.name,
+                "user_story_id": card.user_story_id,
+                "user_story_title": card.user_story.title if card.user_story else "",
+                "title": card.title,
+                "description": card.description or "",
+                "priority": card.priority,
+                "status": card.status,
+                "position": card.position
+            }
+            for card in cards
+        ]
+        return JsonResponse({"status": "success", "cards": data}, status=200)
+    except PermissionDenied as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=403)
+    except Http404 as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=404)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"Error al obtener tareas asignadas: {str(e)}"}, status=500)
 
