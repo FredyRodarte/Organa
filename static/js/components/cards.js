@@ -90,6 +90,11 @@ class CardCard {
                     <button class="btn-card-delete" title="Eliminar tarea" style="background: transparent; border: none; color: #fca5a5; cursor: pointer; font-size: 12px; padding: 2px; transition: color 0.2s;">🗑</button>
                 </div>
             </div>
+            ${this.card.user_story_title ? `
+                <div style="display: inline-flex; align-items: center; font-size: 10px; font-weight: 500; color: #d8b4fe; background: rgba(139, 92, 246, 0.12); border: 1px solid rgba(139, 92, 246, 0.25); border-radius: 6px; padding: 2px 6px; width: fit-content; margin-top: 2px;">
+                    📖 ${escapeHTML(this.card.user_story_title)}
+                </div>
+            ` : ''}
             <h4 style="font-size: 14px; font-weight: 600; color: var(--text-main); margin: 0; line-height: 1.4;">${escapedTitle}</h4>
             ${escapedDesc ? `<p style="font-size: 12px; color: var(--text-muted); margin: 0; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.5;">${escapedDesc}</p>` : ''}
             <div style="display: flex; justify-content: flex-end; align-items: center; margin-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.03); padding-top: 8px;">

@@ -32,6 +32,8 @@ def create_card_view(request):
             "card": {
                 "id": card.id,
                 "column_id": card.column_id,
+                "user_story_id": card.user_story_id,
+                "user_story_title": card.user_story.title if card.user_story else "",
                 "title": card.title,
                 "description": card.description or "",
                 "priority": card.priority,
@@ -76,6 +78,8 @@ def update_card_view(request):
             "card": {
                 "id": card.id,
                 "column_id": card.column_id,
+                "user_story_id": card.user_story_id,
+                "user_story_title": card.user_story.title if card.user_story else "",
                 "title": card.title,
                 "description": card.description or "",
                 "priority": card.priority,
@@ -142,6 +146,8 @@ def list_cards_view(request, column_id):
             {
                 "id": card.id,
                 "column_id": card.column_id,
+                "user_story_id": card.user_story_id,
+                "user_story_title": card.user_story.title if card.user_story else "",
                 "title": card.title,
                 "description": card.description or "",
                 "priority": card.priority,

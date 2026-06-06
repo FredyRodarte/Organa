@@ -20,6 +20,13 @@ class KanbanCard(models.Model):
         choices=PRIORITY_CHOICES,
         default='MEDIUM'
     )
+    user_story = models.ForeignKey(
+        'user_stories.UserStory',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cards'
+    )
     status = models.CharField(
         max_length=50,
         default='ACTIVE',

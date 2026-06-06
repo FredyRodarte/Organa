@@ -224,6 +224,8 @@ async function fetchAndRenderCards(columnId, cardContainer, placeholder, badgeEl
         
         if (data.status === 'success') {
             const cards = data.cards || [];
+            window.boardCardsMap = window.boardCardsMap || {};
+            window.boardCardsMap[columnId] = cards;
             badgeEl.innerText = cards.length;
             cardContainer.innerHTML = '';
             
