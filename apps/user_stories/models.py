@@ -33,11 +33,32 @@ class UserStory(models.Model):
         choices=PRIORITY_CHOICES,
         default='MEDIUM'
     )
+    APPROVAL_STATUS_CHOICES = [
+        ('PENDING', 'Pendiente de aprobación'),
+        ('APPROVED', 'Aprobada'),
+        ('REJECTED', 'Rechazada'),
+        ('CHANGES_REQUESTED', 'Ajustes solicitados'),
+    ]
+
     status = models.CharField(
         max_length=15,
         choices=STATUS_CHOICES,
         default='ACTIVE'
     )
+    approval_status = models.CharField(
+        max_length=20,
+        choices=APPROVAL_STATUS_CHOICES,
+        default='PENDING'
+    )
+    approved_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='approved_stories'
+    )
+    approved_at = models.DateTimeField(null=True, blank=True)
+    rejection_reason = models.TextField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

@@ -86,6 +86,30 @@ class StoryCard {
             statLabel = 'Archivada';
         }
 
+        // Approval status badges
+        let appBg = 'rgba(245, 158, 11, 0.12)';
+        let appColor = '#fbbf24';
+        let appBorder = '1px solid rgba(245, 158, 11, 0.25)';
+        let appLabel = 'Pendiente';
+
+        const appStatus = this.story.approval_status || 'PENDING';
+        if (appStatus === 'APPROVED') {
+            appBg = 'rgba(16, 185, 129, 0.12)';
+            appColor = '#34d399';
+            appBorder = '1px solid rgba(16, 185, 129, 0.25)';
+            appLabel = 'Aprobada';
+        } else if (appStatus === 'REJECTED') {
+            appBg = 'rgba(239, 68, 68, 0.12)';
+            appColor = '#fca5a5';
+            appBorder = '1px solid rgba(239, 68, 68, 0.25)';
+            appLabel = 'Rechazada';
+        } else if (appStatus === 'CHANGES_REQUESTED') {
+            appBg = 'rgba(249, 115, 22, 0.12)';
+            appColor = '#fdba74';
+            appBorder = '1px solid rgba(249, 115, 22, 0.25)';
+            appLabel = 'Ajustes';
+        }
+
         const value = this.story.business_value || 0;
         const title = escapeHTML(this.story.title);
         const desc = escapeHTML(this.story.description || '');
@@ -103,9 +127,14 @@ class StoryCard {
 
         cardEl.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
-                <span style="font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 8px; background: ${priBg}; color: ${priColor}; border: ${priBorder}; text-transform: uppercase;">
-                    ${priLabel}
-                </span>
+                <div style="display: flex; gap: 4px;">
+                    <span style="font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 8px; background: ${priBg}; color: ${priColor}; border: ${priBorder}; text-transform: uppercase;">
+                        ${priLabel}
+                    </span>
+                    <span style="font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 8px; background: ${appBg}; color: ${appColor}; border: ${appBorder}; text-transform: uppercase;">
+                        ${appLabel}
+                    </span>
+                </div>
                 <div style="display: flex; gap: 6px; align-items: center;">
                     <span style="font-size: 10px; font-weight: 600; padding: 2px 8px; border-radius: 8px; background: ${statBg}; color: ${statColor}; border: 1px solid ${statColor}30;">
                         ${statLabel}
@@ -166,6 +195,7 @@ class StoryCard {
 class StoryDetail {
     /**
      * @param {Object} story - Full story detail data with cards list
+     * @param {string} userRole - Current active role of the user ('DEV' or 'PO')
      * @param {Function} onBack - Callback to return to list view
      * @param {Function} onUpdate - Callback to update story attributes
      * @param {Function} onLinkCard - Callback to link a card
@@ -173,9 +203,13 @@ class StoryDetail {
      * @param {Function} onCreateTask - Callback to create a subtask
      * @param {Function} onUpdateTask - Callback to update a subtask
      * @param {Function} onDeleteTask - Callback to delete a subtask
+     * @param {Function} onApprove - Callback to approve user story
+     * @param {Function} onReject - Callback to reject user story
+     * @param {Function} onRequestChanges - Callback to request changes on user story
      */
-    constructor(story, onBack, onUpdate, onLinkCard, onUnlinkCard, onCreateTask, onUpdateTask, onDeleteTask) {
+    constructor(story, userRole, onBack, onUpdate, onLinkCard, onUnlinkCard, onCreateTask, onUpdateTask, onDeleteTask, onApprove, onReject, onRequestChanges) {
         this.story = story;
+        this.userRole = userRole || 'DEV';
         this.onBack = onBack;
         this.onUpdate = onUpdate;
         this.onLinkCard = onLinkCard;
@@ -183,6 +217,9 @@ class StoryDetail {
         this.onCreateTask = onCreateTask;
         this.onUpdateTask = onUpdateTask;
         this.onDeleteTask = onDeleteTask;
+        this.onApprove = onApprove;
+        this.onReject = onReject;
+        this.onRequestChanges = onRequestChanges;
     }
 
     render() {
@@ -273,11 +310,94 @@ class StoryDetail {
             });
         }
 
+        // Approval flow HTML block
+        const appStatus = this.story.approval_status || 'PENDING';
+        let statusText = 'Pendiente de aprobación';
+        let statusColor = '#fbbf24';
+        let statusIcon = '⏳';
+        let logText = '';
+
+        if (appStatus === 'APPROVED') {
+            statusText = 'Aprobada';
+            statusColor = '#34d399';
+            statusIcon = '✅';
+            const dateStr = this.story.approved_at || '';
+            const poEmail = this.story.approved_by_email || 'Product Owner';
+            logText = `Aprobada por <strong>${escapeHTML(poEmail)}</strong> el ${dateStr}`;
+        } else if (appStatus === 'REJECTED') {
+            statusText = 'Rechazada';
+            statusColor = '#fca5a5';
+            statusIcon = '❌';
+            const dateStr = this.story.approved_at || '';
+            const poEmail = this.story.approved_by_email || 'Product Owner';
+            logText = `Rechazada por <strong>${escapeHTML(poEmail)}</strong> el ${dateStr}`;
+        } else if (appStatus === 'CHANGES_REQUESTED') {
+            statusText = 'Ajustes Solicitados';
+            statusColor = '#fdba74';
+            statusIcon = '⚠️';
+            const dateStr = this.story.approved_at || '';
+            const poEmail = this.story.approved_by_email || 'Product Owner';
+            logText = `Ajustes solicitados por <strong>${escapeHTML(poEmail)}</strong> el ${dateStr}`;
+        }
+
+        const approvalStatusBox = `
+            <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span style="font-size: 16px;">${statusIcon}</span>
+                    <h4 style="font-size: 14px; font-weight: 600; margin: 0; color: var(--text-main);">Estado: <span style="color: ${statusColor};">${statusText}</span></h4>
+                </div>
+                ${logText ? `<div style="font-size: 11px; color: var(--text-muted);">${logText}</div>` : ''}
+                
+                ${(appStatus === 'REJECTED' || appStatus === 'CHANGES_REQUESTED') && this.story.rejection_reason ? `
+                    <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.2); border-radius: 8px; padding: 10px 12px; font-size: 12px; color: #fca5a5; margin-top: 4px; line-height: 1.5;">
+                        <strong>Motivo / Cambios solicitados:</strong><br>
+                        ${escapeHTML(this.story.rejection_reason)}
+                    </div>
+                ` : ''}
+            </div>
+        `;
+
+        let actionButtonsHtml = '';
+        if (this.userRole === 'PO') {
+            actionButtonsHtml = `
+                <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+                    <h4 style="font-size: 14px; font-weight: 600; margin: 0; color: var(--text-main);">Validación del Product Owner</h4>
+                    <div style="display: flex; gap: 8px;">
+                        <button id="btn-approve-story" class="btn btn-accent btn-sm" style="flex-grow: 1; padding: 8px; font-size: 12px; background: #10b981; box-shadow: none; border-radius: 8px; border: none; height: 32px; width: auto; font-family: inherit;">Aprobar</button>
+                        <button id="btn-show-reject" class="btn btn-outline btn-sm" style="flex-grow: 1; padding: 8px; font-size: 12px; border-color: rgba(239, 68, 68, 0.3); color: #fca5a5; border-radius: 8px; height: 32px; width: auto; font-family: inherit;">Rechazar</button>
+                        <button id="btn-show-changes" class="btn btn-outline btn-sm" style="flex-grow: 1; padding: 8px; font-size: 12px; border-color: rgba(249, 115, 22, 0.3); color: #fdba74; border-radius: 8px; height: 32px; width: auto; font-family: inherit;">Ajustes</button>
+                    </div>
+
+                    <!-- Input form for rejection / changes reasons -->
+                    <div id="rejection-form-container" style="display: none; flex-direction: column; gap: 8px; margin-top: 8px; animation: fadeIn 0.2s ease-out;">
+                        <label for="rejection-reason-input" id="rejection-form-label" style="font-size: 11px; color: var(--text-muted);">Especifica el motivo *</label>
+                        <textarea id="rejection-reason-input" class="form-control" placeholder="Escribe el motivo de la decisión aquí..." style="padding: 8px; font-size: 12px; height: 60px; resize: vertical; margin-bottom: 0; background: rgba(255,255,255,0.02);"></textarea>
+                        <div style="display: flex; gap: 6px; align-self: flex-end;">
+                            <button id="btn-cancel-rejection" class="btn btn-outline btn-sm" style="padding: 4px 10px; font-size: 11px; width: auto; border-radius: 6px; height: 26px; font-family: inherit;">Cancelar</button>
+                            <button id="btn-submit-rejection" class="btn btn-accent btn-sm" style="padding: 4px 10px; font-size: 11px; width: auto; background: var(--accent); border-radius: 6px; height: 26px; font-family: inherit;">Enviar</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        } else {
+            actionButtonsHtml = `
+                <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 12px; padding: 14px 16px; font-size: 12px; color: var(--text-muted); text-align: center; border-left: 3px solid var(--accent);">
+                    🔒 Sólo los usuarios con rol de <strong>Product Owner</strong> pueden aprobar o rechazar esta historia.
+                </div>
+            `;
+        }
+
         detailEl.innerHTML = `
             <!-- Back Button -->
             <button id="btn-back-to-stories" style="background: transparent; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: var(--text-muted); padding: 8px 12px; font-size: 12px; cursor: pointer; align-self: flex-start; transition: all 0.2s;" onmouseover="this.style.borderColor='rgba(255,255,255,0.2)'; this.style.color='var(--text-main)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.1)'; this.style.color='var(--text-muted)'">
                 ← Volver al listado
             </button>
+
+            <!-- Approval Status Display -->
+            ${approvalStatusBox}
+
+            <!-- Validation Action Buttons -->
+            ${actionButtonsHtml}
 
             <!-- Progress Bar Card -->
             <div style="background: rgba(255, 255, 255, 0.01); border: 1px solid rgba(255, 255, 255, 0.03); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 8px;">
@@ -308,7 +428,7 @@ class StoryDetail {
                         <label for="new-task-hours" style="font-size: 10px; color: var(--text-muted);">Horas</label>
                         <input type="number" id="new-task-hours" class="form-control" value="0" min="0" required style="padding: 6px 12px; font-size: 12px; background: rgba(255,255,255,0.02); height: 32px; margin-bottom: 0;">
                     </div>
-                    <button type="submit" class="btn btn-accent btn-sm" style="padding: 0 12px; font-size: 12px; height: 32px; width: auto; white-space: nowrap; display: flex; align-items: center; justify-content: center;">Agregar</button>
+                    <button type="submit" class="btn btn-accent btn-sm" style="padding: 0 12px; font-size: 12px; height: 32px; width: auto; white-space: nowrap; display: flex; align-items: center; justify-content: center; font-family: inherit;">Agregar</button>
                 </form>
 
                 <div id="task-error-alert" class="alert alert-error" style="display: none; font-size: 11px; padding: 8px; margin-bottom: 8px;"></div>
@@ -370,7 +490,7 @@ class StoryDetail {
                         <select id="select-link-card" class="form-control" style="flex-grow: 1; padding: 6px 12px; font-size: 12px; height: 32px; margin-bottom: 0;">
                             ${linkableOptions}
                         </select>
-                        <button id="btn-link-card-submit" class="btn btn-accent btn-sm" style="padding: 0 12px; font-size: 12px; height: 32px; width: auto; white-space: nowrap;">+ Vincular</button>
+                        <button id="btn-link-card-submit" class="btn btn-accent btn-sm" style="padding: 0 12px; font-size: 12px; height: 32px; width: auto; white-space: nowrap; font-family: inherit;">+ Vincular</button>
                     </div>
                 ` : ''}
 
@@ -390,6 +510,16 @@ class StoryDetail {
         const createTaskForm = detailEl.querySelector('#create-task-form');
         const statusSelects = detailEl.querySelectorAll('.select-task-status');
         const deleteTaskBtns = detailEl.querySelectorAll('.btn-delete-task');
+
+        // Validation Action Hooks
+        const approveBtn = detailEl.querySelector('#btn-approve-story');
+        const showRejectBtn = detailEl.querySelector('#btn-show-reject');
+        const showChangesBtn = detailEl.querySelector('#btn-show-changes');
+        const rejectionContainer = detailEl.querySelector('#rejection-form-container');
+        const rejectionInput = detailEl.querySelector('#rejection-reason-input');
+        const rejectionLabel = detailEl.querySelector('#rejection-form-label');
+        const cancelRejectionBtn = detailEl.querySelector('#btn-cancel-rejection');
+        const submitRejectionBtn = detailEl.querySelector('#btn-submit-rejection');
 
         if (backBtn) {
             backBtn.addEventListener('click', () => {
@@ -504,6 +634,83 @@ class StoryDetail {
             });
         });
 
+        // Validation buttons wiring
+        if (approveBtn) {
+            approveBtn.addEventListener('click', async () => {
+                if (confirm('¿Estás seguro de que deseas aprobar esta historia de usuario?')) {
+                    if (typeof this.onApprove === 'function') {
+                        try {
+                            await this.onApprove();
+                        } catch (err) {
+                            alert(err.message || 'Error al aprobar la historia.');
+                        }
+                    }
+                }
+            });
+        }
+
+        let pendingAction = ''; // 'reject' or 'changes'
+
+        if (showRejectBtn) {
+            showRejectBtn.addEventListener('click', () => {
+                rejectionContainer.style.display = 'flex';
+                rejectionLabel.innerText = 'Especifica el motivo de rechazo *';
+                rejectionInput.placeholder = 'Ej. No cumple con las especificaciones de diseño.';
+                pendingAction = 'reject';
+                rejectionInput.focus();
+            });
+        }
+
+        if (showChangesBtn) {
+            showChangesBtn.addEventListener('click', () => {
+                rejectionContainer.style.display = 'flex';
+                rejectionLabel.innerText = 'Especifica los cambios requeridos *';
+                rejectionInput.placeholder = 'Ej. Añadir criterios de aceptación detallados.';
+                pendingAction = 'changes';
+                rejectionInput.focus();
+            });
+        }
+
+        if (cancelRejectionBtn) {
+            cancelRejectionBtn.addEventListener('click', () => {
+                rejectionContainer.style.display = 'none';
+                rejectionInput.value = '';
+                pendingAction = '';
+            });
+        }
+
+        if (submitRejectionBtn) {
+            submitRejectionBtn.addEventListener('click', async () => {
+                const reason = rejectionInput.value.trim();
+                if (!reason) {
+                    alert('Por favor especifica un motivo.');
+                    return;
+                }
+
+                if (pendingAction === 'reject') {
+                    if (typeof this.onReject === 'function') {
+                        try {
+                            await this.onReject(reason);
+                            rejectionContainer.style.display = 'none';
+                            rejectionInput.value = '';
+                        } catch (err) {
+                            alert(err.message || 'Error al rechazar la historia.');
+                        }
+                    }
+                } else if (pendingAction === 'changes') {
+                    if (typeof this.onRequestChanges === 'function') {
+                        try {
+                            await this.onRequestChanges(reason);
+                            rejectionContainer.style.display = 'none';
+                            rejectionInput.value = '';
+                        } catch (err) {
+                            alert(err.message || 'Error al solicitar cambios.');
+                        }
+                    }
+                }
+            });
+        }
+
         return detailEl;
     }
 }
@@ -519,6 +726,7 @@ class StoryList {
         this.boardId = boardId;
         this.csrfToken = csrfToken;
         this.stories = [];
+        this.userRole = 'DEV'; // Default active role
         this.viewMode = 'list'; // 'list', 'create', 'detail'
         this.activeStoryId = null;
     }
@@ -530,6 +738,7 @@ class StoryList {
             const data = await response.json();
             if (data.status === 'success') {
                 this.stories = data.stories || [];
+                this.userRole = data.user_role || 'DEV';
                 this.render();
             } else {
                 this.container.innerHTML = `<div style="padding:20px; color:#fca5a5; font-size:12px;">Error al cargar historias: ${data.message}</div>`;
@@ -543,16 +752,71 @@ class StoryList {
         if (!this.container) return;
         this.container.innerHTML = '';
 
+        // Render global role simulator header
+        const roleHeader = document.createElement('div');
+        roleHeader.style.cssText = `
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 10px 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 12px;
+            margin-bottom: 16px;
+            animation: fadeIn 0.3s ease-out forwards;
+        `;
+        const activeRoleName = (this.userRole === 'PO') ? 'Product Owner 👑' : 'Developer 💻';
+        roleHeader.innerHTML = `
+            <span style="color: var(--text-muted);">Rol simulado: <strong style="color: var(--text-main);">${activeRoleName}</strong></span>
+            <button id="btn-toggle-role" class="btn btn-accent btn-sm" style="padding: 4px 10px; font-size: 11px; width: auto; background: var(--accent); border-radius: 6px; box-shadow: none; height: 24px; font-family: inherit;">Cambiar Rol</button>
+        `;
+        
+        roleHeader.querySelector('#btn-toggle-role').addEventListener('click', async () => {
+            try {
+                const response = await fetch('/stories/toggle-role', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': this.csrfToken
+                    }
+                });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    this.userRole = data.role;
+                    // Reload current view
+                    if (this.viewMode === 'detail') {
+                        await this.renderDetailView();
+                    } else if (this.viewMode === 'list') {
+                        await this.load();
+                    } else {
+                        this.render();
+                    }
+                } else {
+                    alert(data.message || 'Error al cambiar de rol.');
+                }
+            } catch (e) {
+                alert('Error de conexión.');
+            }
+        });
+
+        this.container.appendChild(roleHeader);
+
+        // Render inner content container
+        const contentEl = document.createElement('div');
+        contentEl.id = 'stories-inner-content';
+        this.container.appendChild(contentEl);
+
         if (this.viewMode === 'create') {
-            this.renderCreateForm();
+            this.renderCreateForm(contentEl);
         } else if (this.viewMode === 'detail') {
-            this.renderDetailView();
+            this.renderDetailView(contentEl);
         } else {
-            this.renderListView();
+            this.renderListView(contentEl);
         }
     }
 
-    renderListView() {
+    renderListView(contentEl) {
         const header = document.createElement('div');
         header.style.cssText = `
             display: flex;
@@ -565,7 +829,7 @@ class StoryList {
             <button id="btn-open-create-story" class="btn btn-accent btn-sm" style="padding: 6px 12px; font-size: 12px; width: auto;">+ Nueva</button>
         `;
 
-        this.container.appendChild(header);
+        contentEl.appendChild(header);
 
         const listContainer = document.createElement('div');
         listContainer.style.cssText = `
@@ -573,7 +837,7 @@ class StoryList {
             flex-direction: column;
             gap: 12px;
             overflow-y: auto;
-            max-height: calc(100vh - 180px);
+            max-height: calc(100vh - 220px);
             padding-bottom: 20px;
         `;
 
@@ -594,7 +858,7 @@ class StoryList {
             });
         }
 
-        this.container.appendChild(listContainer);
+        contentEl.appendChild(listContainer);
 
         // Bind create button
         const createBtn = header.querySelector('#btn-open-create-story');
@@ -606,7 +870,7 @@ class StoryList {
         }
     }
 
-    renderCreateForm() {
+    renderCreateForm(contentEl) {
         const createEl = document.createElement('div');
         createEl.style.cssText = `
             display: flex;
@@ -655,7 +919,7 @@ class StoryList {
             </form>
         `;
 
-        this.container.appendChild(createEl);
+        contentEl.appendChild(createEl);
 
         const cancelBtn = createEl.querySelector('#btn-cancel-create');
         const form = createEl.querySelector('#create-story-form');
@@ -716,17 +980,22 @@ class StoryList {
         }
     }
 
-    async renderDetailView() {
-        this.container.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:13px;">Cargando detalle...</div>`;
+    async renderDetailView(contentEl) {
+        if (!contentEl) {
+            contentEl = this.container.querySelector('#stories-inner-content');
+        }
+        contentEl.innerHTML = `<div style="text-align:center; padding:20px; color:var(--text-muted); font-size:13px;">Cargando detalle...</div>`;
         try {
             const response = await fetch(`/stories/${this.activeStoryId}`);
             const data = await response.json();
             if (data.status === 'success') {
                 const story = data.story;
-                this.container.innerHTML = '';
+                contentEl.innerHTML = '';
+                this.userRole = data.user_role || 'DEV';
                 
                 const detailComp = new StoryDetail(
                     story,
+                    this.userRole,
                     () => {
                         this.viewMode = 'list';
                         this.activeStoryId = null;
@@ -737,15 +1006,18 @@ class StoryList {
                     (cardId, storyId) => this.handleUnlinkCard(cardId, storyId),
                     (title, hours) => this.handleCreateTask(title, hours),
                     (taskId, payload) => this.handleUpdateTask(taskId, payload),
-                    (taskId) => this.handleDeleteTask(taskId)
+                    (taskId) => this.handleDeleteTask(taskId),
+                    () => this.handleApproveStory(),
+                    (reason) => this.handleRejectStory(reason),
+                    (reason) => this.handleRequestChanges(reason)
                 );
 
-                this.container.appendChild(detailComp.render());
+                contentEl.appendChild(detailComp.render());
             } else {
-                this.container.innerHTML = `<div style="padding:20px; color:#fca5a5; font-size:12px;">Error al cargar detalle: ${data.message}</div>`;
+                contentEl.innerHTML = `<div style="padding:20px; color:#fca5a5; font-size:12px;">Error al cargar detalle: ${data.message}</div>`;
             }
         } catch (e) {
-            this.container.innerHTML = `<div style="padding:20px; color:#fca5a5; font-size:12px;">Error de conexión.</div>`;
+            contentEl.innerHTML = `<div style="padding:20px; color:#fca5a5; font-size:12px;">Error de conexión.</div>`;
         }
     }
 
@@ -762,7 +1034,6 @@ class StoryList {
 
             const data = await response.json();
             if (response.ok && data.status === 'success') {
-                // Return to details view
                 await this.renderDetailView();
             } else {
                 alert(data.message || 'Error al actualizar la historia.');
@@ -785,9 +1056,7 @@ class StoryList {
 
             const data = await response.json();
             if (response.ok && data.status === 'success') {
-                // Refresh detail view
                 await this.renderDetailView();
-                // Dynamically reload the card's column to display its story label
                 if (window.fetchColumns) {
                     await window.fetchColumns();
                 }
@@ -812,9 +1081,7 @@ class StoryList {
 
             const data = await response.json();
             if (response.ok && data.status === 'success') {
-                // Refresh detail view
                 await this.renderDetailView();
-                // Dynamically reload the card's column to remove its story label
                 if (window.fetchColumns) {
                     await window.fetchColumns();
                 }
@@ -902,6 +1169,74 @@ class StoryList {
                 await this.renderDetailView();
             } else {
                 throw new Error(data.message || 'Error al eliminar la subtarea.');
+            }
+        } catch (e) {
+            throw e;
+        }
+    }
+
+    async handleApproveStory() {
+        try {
+            const response = await fetch(`/stories/${this.activeStoryId}/approve`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.csrfToken
+                }
+            });
+
+            const data = await response.json();
+            if (response.ok && data.status === 'success') {
+                await this.load();
+                await this.renderDetailView();
+            } else {
+                throw new Error(data.message || 'Error al aprobar la historia.');
+            }
+        } catch (e) {
+            throw e;
+        }
+    }
+
+    async handleRejectStory(reason) {
+        try {
+            const response = await fetch(`/stories/${this.activeStoryId}/reject`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.csrfToken
+                },
+                body: JSON.stringify({ reason: reason })
+            });
+
+            const data = await response.json();
+            if (response.ok && data.status === 'success') {
+                await this.load();
+                await this.renderDetailView();
+            } else {
+                throw new Error(data.message || 'Error al rechazar la historia.');
+            }
+        } catch (e) {
+            throw e;
+        }
+    }
+
+    async handleRequestChanges(reason) {
+        try {
+            const response = await fetch(`/stories/${this.activeStoryId}/request-changes`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': this.csrfToken
+                },
+                body: JSON.stringify({ reason: reason })
+            });
+
+            const data = await response.json();
+            if (response.ok && data.status === 'success') {
+                await this.load();
+                await this.renderDetailView();
+            } else {
+                throw new Error(data.message || 'Error al solicitar ajustes.');
             }
         } catch (e) {
             throw e;

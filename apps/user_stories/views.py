@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.http import require_http_methods
 from django.core.exceptions import ValidationError, PermissionDenied
 from django.shortcuts import get_object_or_404
-from apps.user_stories.services import user_story_service
+from apps.user_stories.services import user_story_service, approval_service
 from apps.user_stories.models import UserStory
 
 @login_required
@@ -45,7 +45,11 @@ def create_story_view(request):
                 "created_at": story.created_at.strftime("%Y-%m-%d %H:%M:%S"),
                 "total_tasks": 0,
                 "completed_tasks": 0,
-                "total_hours": 0
+                "total_hours": 0,
+                "approval_status": story.approval_status,
+                "approved_by_email": None,
+                "approved_at": None,
+                "rejection_reason": None
             }
         }, status=201)
     except ValidationError as e:
@@ -95,7 +99,11 @@ def update_story_view(request):
                 "status": story.status,
                 "total_tasks": story.tasks.count(),
                 "completed_tasks": story.tasks.filter(status='DONE').count(),
-                "total_hours": sum(t.estimated_hours for t in story.tasks.all())
+                "total_hours": sum(t.estimated_hours for t in story.tasks.all()),
+                "approval_status": story.approval_status,
+                "approved_by_email": story.approved_by.email or story.approved_by.username if story.approved_by else None,
+                "approved_at": story.approved_at.strftime("%Y-%m-%d %H:%M:%S") if story.approved_at else None,
+                "rejection_reason": story.rejection_reason
             }
         }, status=200)
     except ValidationError as e:
@@ -127,11 +135,19 @@ def list_stories_view(request, board_id):
                 "created_at": story.created_at.strftime("%Y-%m-%d %H:%M:%S"),
                 "total_tasks": story.tasks.count(),
                 "completed_tasks": story.tasks.filter(status='DONE').count(),
-                "total_hours": sum(t.estimated_hours for t in story.tasks.all())
+                "total_hours": sum(t.estimated_hours for t in story.tasks.all()),
+                "approval_status": story.approval_status,
+                "approved_by_email": story.approved_by.email or story.approved_by.username if story.approved_by else None,
+                "approved_at": story.approved_at.strftime("%Y-%m-%d %H:%M:%S") if story.approved_at else None,
+                "rejection_reason": story.rejection_reason
             }
             for story in stories
         ]
-        return JsonResponse({"status": "success", "stories": data}, status=200)
+        return JsonResponse({
+            "status": "success",
+            "user_role": getattr(request.user, 'role', 'DEV'),
+            "stories": data
+        }, status=200)
     except PermissionDenied as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=403)
     except Http404:
@@ -177,6 +193,7 @@ def detail_story_view(request, story_id):
         
         return JsonResponse({
             "status": "success",
+            "user_role": getattr(request.user, 'role', 'DEV'),
             "story": {
                 "id": story.id,
                 "board_id": story.board_id,
@@ -190,7 +207,11 @@ def detail_story_view(request, story_id):
                 "completed_tasks": sum(1 for t in tasks_data if t['status'] == 'DONE'),
                 "total_hours": sum(t['estimated_hours'] for t in tasks_data),
                 "cards": cards_data,
-                "tasks": tasks_data
+                "tasks": tasks_data,
+                "approval_status": story.approval_status,
+                "approved_by_email": story.approved_by.email or story.approved_by.username if story.approved_by else None,
+                "approved_at": story.approved_at.strftime("%Y-%m-%d %H:%M:%S") if story.approved_at else None,
+                "rejection_reason": story.rejection_reason
             }
         }, status=200)
     except Http404:
@@ -237,3 +258,120 @@ def link_card_view(request):
         return JsonResponse({"status": "error", "message": "La tarjeta o historia especificada no existe."}, status=404)
     except Exception as e:
         return JsonResponse({"status": "error", "message": f"Error al asociar tarjeta: {str(e)}"}, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def approve_story_view(request, story_id):
+    """
+    Aprueba una historia de usuario tras validar permisos de Product Owner.
+    """
+    try:
+        story = approval_service.approve_story(request.user, story_id)
+        return JsonResponse({
+            "status": "success",
+            "message": "Historia de usuario aprobada correctamente.",
+            "story": {
+                "id": story.id,
+                "approval_status": story.approval_status,
+                "approved_by_email": story.approved_by.email or story.approved_by.username if story.approved_by else None,
+                "approved_at": story.approved_at.strftime("%Y-%m-%d %H:%M:%S") if story.approved_at else None,
+                "rejection_reason": story.rejection_reason
+            }
+        }, status=200)
+    except ValidationError as e:
+        msg = e.messages[0] if hasattr(e, 'messages') else str(e)
+        return JsonResponse({"status": "error", "message": msg}, status=400)
+    except PermissionDenied as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=403)
+    except Http404:
+        return JsonResponse({"status": "error", "message": "La historia de usuario especificada no existe."}, status=404)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"Error al aprobar historia: {str(e)}"}, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def reject_story_view(request, story_id):
+    """
+    Rechaza una historia de usuario especificando un motivo.
+    """
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"status": "error", "message": "Formato de datos JSON inválido."}, status=400)
+        
+    reason = data.get("reason")
+    try:
+        story = approval_service.reject_story(request.user, story_id, reason)
+        return JsonResponse({
+            "status": "success",
+            "message": "Historia de usuario rechazada.",
+            "story": {
+                "id": story.id,
+                "approval_status": story.approval_status,
+                "approved_by_email": story.approved_by.email or story.approved_by.username if story.approved_by else None,
+                "approved_at": story.approved_at.strftime("%Y-%m-%d %H:%M:%S") if story.approved_at else None,
+                "rejection_reason": story.rejection_reason
+            }
+        }, status=200)
+    except ValidationError as e:
+        msg = e.messages[0] if hasattr(e, 'messages') else str(e)
+        return JsonResponse({"status": "error", "message": msg}, status=400)
+    except PermissionDenied as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=403)
+    except Http404:
+        return JsonResponse({"status": "error", "message": "La historia de usuario especificada no existe."}, status=404)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"Error al rechazar historia: {str(e)}"}, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def request_changes_view(request, story_id):
+    """
+    Solicita cambios en una historia de usuario especificando un motivo.
+    """
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({"status": "error", "message": "Formato de datos JSON inválido."}, status=400)
+        
+    reason = data.get("reason")
+    try:
+        story = approval_service.request_changes(request.user, story_id, reason)
+        return JsonResponse({
+            "status": "success",
+            "message": "Ajustes solicitados correctamente.",
+            "story": {
+                "id": story.id,
+                "approval_status": story.approval_status,
+                "approved_by_email": story.approved_by.email or story.approved_by.username if story.approved_by else None,
+                "approved_at": story.approved_at.strftime("%Y-%m-%d %H:%M:%S") if story.approved_at else None,
+                "rejection_reason": story.rejection_reason
+            }
+        }, status=200)
+    except ValidationError as e:
+        msg = e.messages[0] if hasattr(e, 'messages') else str(e)
+        return JsonResponse({"status": "error", "message": msg}, status=400)
+    except PermissionDenied as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=403)
+    except Http404:
+        return JsonResponse({"status": "error", "message": "La historia de usuario especificada no existe."}, status=404)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"Error al solicitar cambios: {str(e)}"}, status=500)
+
+@login_required
+@require_http_methods(["POST"])
+def toggle_role_view(request):
+    """
+    Simula el cambio de rol (PO / DEV) del usuario actual.
+    """
+    try:
+        user = request.user
+        user.role = 'PO' if getattr(user, 'role', 'DEV') == 'DEV' else 'DEV'
+        user.save()
+        return JsonResponse({
+            "status": "success",
+            "role": user.role,
+            "message": f"Rol cambiado a {user.get_role_display()}."
+        }, status=200)
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": f"Error al cambiar de rol: {str(e)}"}, status=500)
