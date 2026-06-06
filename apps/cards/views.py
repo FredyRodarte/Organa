@@ -100,7 +100,7 @@ def update_card_view(request):
 @require_http_methods(["PUT", "POST"])
 def move_card_view(request):
     """
-    Mueve una tarjeta Kanban a otra columna del mismo tablero tras validar ownership.
+    Mueve una tarjeta Kanban a otra columna del mismo tablero y/o reordena su posición tras validar ownership.
     """
     try:
         data = json.loads(request.body)
@@ -108,20 +108,43 @@ def move_card_view(request):
         return JsonResponse({"status": "error", "message": "Formato de datos JSON inválido."}, status=400)
         
     card_id = data.get("card_id")
-    target_column_id = data.get("target_column_id")
+    source_column_id = data.get("source_column") or data.get("source_column_id")
+    target_column_id = data.get("target_column") or data.get("target_column_id")
+    position = data.get("position")
     
     if not card_id or not target_column_id:
-        return JsonResponse({"status": "error", "message": "Los parámetros 'card_id' y 'target_column_id' son obligatorios."}, status=400)
+        return JsonResponse({"status": "error", "message": "Los parámetros 'card_id' y 'target_column' son obligatorios."}, status=400)
         
     try:
-        card = card_service.move_card(request.user, card_id, target_column_id)
+        from django.shortcuts import get_object_or_404
+        from apps.cards.models import KanbanCard
+        
+        # Fallback de compatibilidad
+        if not source_column_id:
+            card_obj = get_object_or_404(KanbanCard, id=card_id)
+            source_column_id = card_obj.column_id
+            
+        if position is None:
+            from apps.columns.models import KanbanColumn
+            col = get_object_or_404(KanbanColumn, id=target_column_id)
+            position = col.cards.count()
+            
+        from apps.cards.services import card_movement_service
+        card = card_movement_service.move_card(
+            request.user, 
+            card_id, 
+            source_column_id, 
+            target_column_id, 
+            position
+        )
         return JsonResponse({
             "status": "success",
             "message": "Tarjeta movida correctamente.",
             "card": {
                 "id": card.id,
                 "column_id": card.column_id,
-                "title": card.title
+                "title": card.title,
+                "position": card.position
             }
         }, status=200)
     except ValidationError as e:

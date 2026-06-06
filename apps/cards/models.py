@@ -33,14 +33,16 @@ class KanbanCard(models.Model):
         blank=True,
         null=True
     )
+    position = models.PositiveIntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['created_at']
+        ordering = ['position', 'created_at']
         indexes = [
-            models.Index(fields=['column', 'created_at']),
+            models.Index(fields=['column', 'position']),
         ]
 
     def __str__(self):
-        return f"{self.title} ({self.priority}) en columna {self.column.name}"
+        return f"{self.title} ({self.priority}) en columna {self.column.name} (pos: {self.position})"
+

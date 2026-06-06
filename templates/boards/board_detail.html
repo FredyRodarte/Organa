@@ -105,6 +105,7 @@
             min-height: 400px;
             display: flex;
             flex-direction: column;
+            transition: background 0.3s ease, border-color 0.3s ease;
         }
 
         .column-header {
@@ -787,7 +788,7 @@
             }
         };
 
-        window.handleMoveCard = async function(cardId, targetColumnId) {
+        window.handleMoveCard = async function(cardId, sourceColumnId, targetColumnId, position) {
             try {
                 const response = await fetch('/cards/move', {
                     method: 'POST',
@@ -797,15 +798,15 @@
                     },
                     body: JSON.stringify({
                         card_id: cardId,
-                        target_column_id: targetColumnId
+                        source_column: sourceColumnId,
+                        target_column: targetColumnId,
+                        position: position
                     })
                 });
 
                 const data = await response.json();
 
-                if (response.ok && data.status === 'success') {
-                    await fetchColumns();
-                } else {
+                if (!response.ok || data.status !== 'success') {
                     alert(data.message || 'Error al mover la tarjeta.');
                     await fetchColumns();
                 }

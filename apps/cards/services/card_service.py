@@ -29,11 +29,16 @@ def create_card(user, column_id, title, description=None, priority='MEDIUM'):
     
     validate_card(title_clean, priority)
     
+    from django.db.models import Max
+    max_pos = column.cards.aggregate(max_pos=Max('position'))['max_pos']
+    position = 0 if max_pos is None else max_pos + 1
+    
     card = KanbanCard.objects.create(
         column=column,
         title=title_clean,
         description=description_clean,
-        priority=priority
+        priority=priority,
+        position=position
     )
     return card
 
@@ -80,16 +85,21 @@ def move_card(user, card_id, target_column_id):
 
 def get_column_cards(user, column_id):
     """
-    Retorna todas las tarjetas de una columna ordenada por created_at tras validar ownership.
+    Retorna todas las tarjetas de una columna ordenada por position tras validar ownership.
     """
     column = column_service.get_column_for_user(user, column_id)
-    return column.cards.all()
+    return column.cards.all().order_by('position', 'created_at')
 
 def delete_card(user, card_id):
     """
-    Elimina una tarjeta tras validar ownership del tablero.
+    Elimina una tarjeta tras validar ownership del tablero y reordena el resto.
     """
     card = get_object_or_404(KanbanCard, id=card_id)
     board_service.get_board_for_user(user, card.column.board_id)
+    
+    column = card.column
     card.delete()
+    
+    from apps.cards.services.card_movement_service import reorder_column_cards
+    reorder_column_cards(column)
 

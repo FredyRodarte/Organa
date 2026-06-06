@@ -7,6 +7,20 @@ function escapeHTML(str) {
     );
 }
 
+function getDragAfterElement(container, y) {
+    const draggableElements = [...container.querySelectorAll('.kanban-card-item:not(.dragging)')];
+    return draggableElements.reduce((closest, child) => {
+        const box = child.getBoundingClientRect();
+        const offset = y - box.top - box.height / 2;
+        if (offset < 0 && offset > closest.offset) {
+            return { offset: offset, element: child };
+        } else {
+            return closest;
+        }
+    }, { offset: Number.NEGATIVE_INFINITY }).element;
+}
+
+
 class ColumnCard {
     /**
      * @param {Object} column - Column data object {id, name, position}
@@ -66,6 +80,81 @@ class ColumnCard {
         const cardContainer = card.querySelector('.column-cards-container');
         const placeholder = card.querySelector('.column-placeholder');
         const badgeEl = card.querySelector('.column-badge');
+
+        // Helper to adjust placeholder and badge locally
+        const updateBadgeAndPlaceholder = () => {
+            const cardCount = cardContainer.querySelectorAll('.kanban-card-item').length;
+            badgeEl.innerText = cardCount;
+            if (cardCount === 0) {
+                placeholder.style.display = 'flex';
+            } else {
+                placeholder.style.display = 'none';
+            }
+        };
+
+        // Drag and Drop Listeners for Column Card Containers
+        cardContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const dragging = document.querySelector('.dragging');
+            if (dragging) {
+                const afterElement = getDragAfterElement(cardContainer, e.clientY);
+                if (afterElement == null) {
+                    cardContainer.appendChild(dragging);
+                } else {
+                    cardContainer.insertBefore(dragging, afterElement);
+                }
+                updateBadgeAndPlaceholder();
+            }
+        });
+
+        cardContainer.addEventListener('dragenter', (e) => {
+            e.preventDefault();
+            card.style.background = 'rgba(255, 255, 255, 0.02)';
+            card.style.borderColor = 'rgba(99, 102, 241, 0.15)';
+        });
+
+        cardContainer.addEventListener('dragleave', () => {
+            card.style.background = 'rgba(255, 255, 255, 0.01)';
+            card.style.borderColor = 'rgba(255, 255, 255, 0.04)';
+        });
+
+        cardContainer.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            card.style.background = 'rgba(255, 255, 255, 0.01)';
+            card.style.borderColor = 'rgba(255, 255, 255, 0.04)';
+            
+            const cardId = parseInt(e.dataTransfer.getData('text/plain'));
+            const sourceColId = parseInt(e.dataTransfer.getData('source-column-id'));
+            const targetColId = this.column.id;
+            
+            if (!cardId) return;
+
+            // Find new position
+            const cardsElements = [...cardContainer.querySelectorAll('.kanban-card-item')];
+            const newPosition = cardsElements.findIndex(el => parseInt(el.dataset.cardId) === cardId);
+
+            if (newPosition !== -1) {
+                // Update badge and placeholder of the target column
+                updateBadgeAndPlaceholder();
+
+                // If source column is different, update its badge and placeholder too
+                if (sourceColId !== targetColId) {
+                    const srcContainer = document.getElementById(`column-cards-${sourceColId}`);
+                    const srcPlaceholder = document.getElementById(`column-placeholder-${sourceColId}`);
+                    const srcBadge = document.getElementById(`column-badge-${sourceColId}`);
+                    if (srcContainer && srcPlaceholder && srcBadge) {
+                        const srcCardCount = srcContainer.querySelectorAll('.kanban-card-item').length;
+                        srcBadge.innerText = srcCardCount;
+                        srcPlaceholder.style.display = srcCardCount === 0 ? 'flex' : 'none';
+                    }
+                }
+
+                // Trigger persist
+                if (typeof window.handleMoveCard === 'function') {
+                    await window.handleMoveCard(cardId, sourceColId, targetColId, newPosition);
+                }
+            }
+        });
 
         // Trigger cards load asynchronously
         setTimeout(() => {

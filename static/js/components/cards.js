@@ -19,6 +19,10 @@ class CardCard {
     render() {
         const cardEl = document.createElement('div');
         cardEl.className = 'kanban-card-item';
+        cardEl.setAttribute('draggable', 'true');
+        cardEl.dataset.cardId = this.card.id;
+        cardEl.dataset.columnId = this.card.column_id;
+        
         cardEl.style.cssText = `
             background: rgba(255, 255, 255, 0.02);
             border: 1px solid rgba(255, 255, 255, 0.05);
@@ -27,7 +31,7 @@ class CardCard {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            cursor: pointer;
+            cursor: grab;
             transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
             position: relative;
             animation: cardFadeIn 0.3s ease-out forwards;
@@ -35,14 +39,42 @@ class CardCard {
 
         // Add hover effect via JS to ensure CSS isolation
         cardEl.addEventListener('mouseenter', () => {
+            if (cardEl.classList.contains('dragging')) return;
             cardEl.style.background = 'rgba(255, 255, 255, 0.04)';
             cardEl.style.borderColor = 'rgba(99, 102, 241, 0.25)';
             cardEl.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.25), 0 0 10px rgba(99, 102, 241, 0.1)';
             cardEl.style.transform = 'translateY(-2px)';
         });
         cardEl.addEventListener('mouseleave', () => {
+            if (cardEl.classList.contains('dragging')) return;
             cardEl.style.background = 'rgba(255, 255, 255, 0.02)';
             cardEl.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+            cardEl.style.boxShadow = 'none';
+            cardEl.style.transform = 'none';
+        });
+
+        // HTML5 Drag and Drop Events
+        cardEl.addEventListener('dragstart', (e) => {
+            cardEl.classList.add('dragging');
+            cardEl.style.cursor = 'grabbing';
+            e.dataTransfer.setData('text/plain', this.card.id);
+            e.dataTransfer.setData('source-column-id', this.card.column_id);
+            e.dataTransfer.effectAllowed = 'move';
+            
+            // Set opacity inside a setTimeout so the drag ghost image retains normal opacity
+            setTimeout(() => {
+                cardEl.style.opacity = '0.35';
+                cardEl.style.borderColor = 'rgba(99, 102, 241, 0.4)';
+                cardEl.style.boxShadow = '0 0 15px rgba(99, 102, 241, 0.2)';
+            }, 0);
+        });
+
+        cardEl.addEventListener('dragend', () => {
+            cardEl.classList.remove('dragging');
+            cardEl.style.cursor = 'grab';
+            cardEl.style.opacity = '1';
+            cardEl.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+            cardEl.style.background = 'rgba(255, 255, 255, 0.02)';
             cardEl.style.boxShadow = 'none';
             cardEl.style.transform = 'none';
         });
