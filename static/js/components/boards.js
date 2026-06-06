@@ -32,13 +32,39 @@ class BoardCard {
             window.location.href = boardUrl;
         });
 
+        // Setup DOM inner HTML (including structured actions container)
         card.innerHTML = `
             <div>
                 <h3 class="board-name">${name}</h3>
                 <p class="board-desc">${description}</p>
             </div>
-            <span class="board-date">Creado el: ${date}</span>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: auto; border-top: 1px solid rgba(255, 255, 255, 0.04); padding-top: 12px;">
+                <span class="board-date">Creado: ${date}</span>
+                <div style="display: flex; gap: 8px; position: relative; z-index: 10;">
+                    <button class="btn-card-edit" style="background: transparent; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 600; color: #a5b4fc; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='rgba(99, 102, 241, 0.5)'" onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.1)'">Editar</button>
+                    <button class="btn-card-delete" style="background: transparent; border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 6px; padding: 4px 8px; font-size: 11px; font-weight: 600; color: #fca5a5; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.borderColor='rgba(239, 68, 68, 0.5)'" onmouseout="this.style.borderColor='rgba(255, 255, 255, 0.1)'">Eliminar</button>
+                </div>
+            </div>
         `;
+
+        // Intercept action button clicks using stopPropagation
+        const editBtn = card.querySelector('.btn-card-edit');
+        const deleteBtn = card.querySelector('.btn-card-delete');
+
+        editBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (typeof window.openEditModal === 'function') {
+                window.openEditModal(this.board.id, this.board.name, this.board.description || '');
+            }
+        });
+
+        deleteBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            if (typeof window.handleDeleteBoard === 'function') {
+                window.handleDeleteBoard(this.board.id, this.board.name);
+            }
+        });
+
         return card;
     }
 }

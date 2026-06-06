@@ -171,3 +171,130 @@ class KanbanBoardTests(TestCase):
         self.client.login(email='user1@organa.com', password='password123')
         response = self.client.get(reverse('board_detail', kwargs={'board_id': 99999}))
         self.assertEqual(response.status_code, 404)
+
+    def test_update_board_service_success(self):
+        """
+        Verifica que el servicio actualice el tablero correctamente.
+        """
+        board = board_service.create_board(self.user1, "Tablero A", "Desc A")
+        updated = board_service.update_board(self.user1, board.id, "Tablero A Modificado", "Desc A Modificada")
+        self.assertEqual(updated.name, "Tablero A Modificado")
+        self.assertEqual(updated.description, "Desc A Modificada")
+
+    def test_update_board_service_duplicate_name(self):
+        """
+        Verifica que el servicio bloquee la actualización a un nombre existente del mismo usuario.
+        """
+        board_service.create_board(self.user1, "Tablero Uno")
+        board2 = board_service.create_board(self.user1, "Tablero Dos")
+        with self.assertRaises(ValidationError) as ctx:
+            board_service.update_board(self.user1, board2.id, "tablero uno")
+        self.assertIn("Ya tienes un tablero creado con el nombre 'tablero uno'", str(ctx.exception))
+
+    def test_update_board_service_same_name_different_desc(self):
+        """
+        Verifica que se permita actualizar la descripción manteniendo el mismo nombre.
+        """
+        board = board_service.create_board(self.user1, "Tablero Uno", "Original")
+        updated = board_service.update_board(self.user1, board.id, "Tablero Uno", "Modificada")
+        self.assertEqual(updated.name, "Tablero Uno")
+        self.assertEqual(updated.description, "Modificada")
+
+    def test_update_board_service_non_owner(self):
+        """
+        Verifica que un usuario que no es el propietario no pueda actualizar el tablero.
+        """
+        from django.core.exceptions import PermissionDenied
+        board = board_service.create_board(self.user1, "Tablero User 1")
+        with self.assertRaises(PermissionDenied):
+            board_service.update_board(self.user2, board.id, "Hackeado")
+
+    def test_update_board_view_success(self):
+        """
+        Verifica que la API permita al propietario actualizar el tablero.
+        """
+        self.client.login(email='user1@organa.com', password='password123')
+        board = board_service.create_board(self.user1, "Original")
+        response = self.client.post(
+            reverse('update_board', kwargs={'board_id': board.id}),
+            data=json.dumps({"name": "Modificado", "description": "Nueva Desc"}),
+            content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertEqual(data['board']['name'], "Modificado")
+        self.assertEqual(data['board']['description'], "Nueva Desc")
+
+    def test_update_board_view_non_owner(self):
+        """
+        Verifica que un no propietario reciba HTTP 403 al intentar actualizar.
+        """
+        self.client.login(email='user2@organa.com', password='password123')
+        board = board_service.create_board(self.user1, "Original")
+        response = self.client.post(
+            reverse('update_board', kwargs={'board_id': board.id}),
+            data=json.dumps({"name": "Modificado"}),
+            content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 403)
+        data = response.json()
+        self.assertEqual(data['status'], 'error')
+
+    def test_update_board_view_duplicate(self):
+        """
+        Verifica que intentar actualizar a un nombre duplicado devuelva HTTP 400.
+        """
+        self.client.login(email='user1@organa.com', password='password123')
+        board_service.create_board(self.user1, "Existente")
+        board = board_service.create_board(self.user1, "Original")
+        response = self.client.post(
+            reverse('update_board', kwargs={'board_id': board.id}),
+            data=json.dumps({"name": "Existente"}),
+            content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 400)
+        data = response.json()
+        self.assertEqual(data['status'], 'error')
+        self.assertIn("Ya tienes un tablero creado con el nombre", data['message'])
+
+    def test_delete_board_service_success(self):
+        """
+        Verifica que el servicio elimine un tablero correctamente.
+        """
+        board = board_service.create_board(self.user1, "Eliminame")
+        board_id = board.id
+        board_service.delete_board(self.user1, board_id)
+        self.assertFalse(KanbanBoard.objects.filter(id=board_id).exists())
+
+    def test_delete_board_service_non_owner(self):
+        """
+        Verifica que un no propietario no pueda eliminar un tablero mediante el servicio.
+        """
+        from django.core.exceptions import PermissionDenied
+        board = board_service.create_board(self.user1, "Tablero User 1")
+        with self.assertRaises(PermissionDenied):
+            board_service.delete_board(self.user2, board.id)
+
+    def test_delete_board_view_success(self):
+        """
+        Verifica que la API permita al propietario eliminar el tablero.
+        """
+        self.client.login(email='user1@organa.com', password='password123')
+        board = board_service.create_board(self.user1, "AEliminar")
+        response = self.client.post(reverse('delete_board', kwargs={'board_id': board.id}))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data['status'], 'success')
+        self.assertEqual(data['message'], "Tablero eliminado correctamente.")
+        self.assertFalse(KanbanBoard.objects.filter(id=board.id).exists())
+
+    def test_delete_board_view_non_owner(self):
+        """
+        Verifica que un no propietario reciba HTTP 403 al intentar eliminar.
+        """
+        self.client.login(email='user2@organa.com', password='password123')
+        board = board_service.create_board(self.user1, "Tablero1")
+        response = self.client.post(reverse('delete_board', kwargs={'board_id': board.id}))
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(KanbanBoard.objects.filter(id=board.id).exists())

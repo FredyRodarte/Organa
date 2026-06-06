@@ -457,20 +457,18 @@
                 <button type="submit" class="btn btn-outline btn-sm">Cerrar Sesión</button>
             </form>
         </footer>
-    </div>
-
-    <!-- Glassmorphic Modal Form -->
+    </div>    <!-- Glassmorphic Modal Form -->
     <div class="modal" id="create-board-modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">Crear Nuevo Tablero</h3>
+                <h3 class="modal-title" id="modal-title">Crear Nuevo Tablero</h3>
                 <button class="modal-close" onclick="closeModal()">&times;</button>
             </div>
             
             <div class="alert alert-error" id="modal-alert-error"></div>
             <div class="alert alert-success" id="modal-alert-success"></div>
 
-            <form id="create-board-form" onsubmit="handleCreateBoard(event)">
+            <form id="create-board-form" onsubmit="handleSubmitBoard(event)">
                 {% csrf_token %}
                 <div class="form-group">
                     <label class="form-label" for="board-name">Nombre del Tablero *</label>
@@ -488,19 +486,38 @@
     <!-- AJAX Core Fetch Script -->
     <script>
         const CSRF_TOKEN = document.querySelector('[name=csrfmiddlewaretoken]').value;
+        let editingBoardId = null;
 
         // Modal Controls
-        function openModal() {
+        function openModal(mode = 'create', id = null, name = '', desc = '') {
             const modal = document.getElementById('create-board-modal');
+            const modalTitle = document.getElementById('modal-title');
+            const submitBtn = document.getElementById('submit-btn');
+            
+            hideAlerts();
+            
+            if (mode === 'edit') {
+                editingBoardId = id;
+                document.getElementById('board-name').value = name;
+                document.getElementById('board-desc').value = desc;
+                modalTitle.innerText = 'Editar Tablero';
+                submitBtn.innerText = 'Actualizar Tablero';
+            } else {
+                editingBoardId = null;
+                document.getElementById('create-board-form').reset();
+                modalTitle.innerText = 'Crear Nuevo Tablero';
+                submitBtn.innerText = 'Guardar Tablero';
+            }
+            
             modal.classList.add('active');
             document.getElementById('board-name').focus();
-            hideAlerts();
         }
 
         function closeModal() {
             const modal = document.getElementById('create-board-modal');
             modal.classList.remove('active');
             document.getElementById('create-board-form').reset();
+            editingBoardId = null;
             hideAlerts();
         }
 
@@ -545,8 +562,8 @@
             }
         }
 
-        // Handle Form Submission
-        async function handleCreateBoard(event) {
+        // Handle Form Submission (Create or Edit)
+        async function handleSubmitBoard(event) {
             event.preventDefault();
             hideAlerts();
 
@@ -554,12 +571,16 @@
             const description = document.getElementById('board-desc').value;
             const submitBtn = document.getElementById('submit-btn');
 
+            // Determine endpoint and method
+            const isEditing = editingBoardId !== null;
+            const url = isEditing ? `/boards/${editingBoardId}/update` : '/boards/create';
+            
             // Disable submit button
             submitBtn.disabled = true;
-            submitBtn.innerText = 'Guardando...';
+            submitBtn.innerText = isEditing ? 'Actualizando...' : 'Guardando...';
 
             try {
-                const response = await fetch('/boards/create', {
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -585,9 +606,40 @@
                 showErrorAlert('Error de conexión con el servidor.');
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.innerText = 'Guardar Tablero';
+                submitBtn.innerText = isEditing ? 'Actualizar Tablero' : 'Guardar Tablero';
             }
         }
+
+        // Expose edit and delete handlers globally for boards.js components
+        window.openEditModal = function(id, name, description) {
+            openModal('edit', id, name, description);
+        };
+
+        window.handleDeleteBoard = async function(id, name) {
+            const confirmed = confirm(`¿Estás seguro de que deseas eliminar el tablero "${name}"? Esta acción es permanente.`);
+            if (!confirmed) return;
+
+            try {
+                const response = await fetch(`/boards/${id}/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CSRF_TOKEN
+                    }
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    // Refresh the board list directly
+                    await fetchBoards();
+                } else {
+                    alert(data.message || 'Error al eliminar el tablero.');
+                }
+            } catch (error) {
+                alert('Error de conexión con el servidor al intentar eliminar el tablero.');
+            }
+        };
 
         // Initial loading trigger
         document.addEventListener('DOMContentLoaded', fetchBoards);
