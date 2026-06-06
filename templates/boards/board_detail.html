@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -7,6 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="{% static 'js/components/columns.js' %}"></script>
     <style>
         :root {
             --bg-deep: #08090c;
@@ -208,6 +210,138 @@
                 align-items: stretch;
             }
         }
+
+        /* Glassmorphic Modal */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(8, 9, 12, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 1000;
+        }
+
+        .modal.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: rgba(18, 20, 29, 0.85);
+            border: 1px solid var(--border-glow);
+            width: 100%;
+            max-width: 440px;
+            padding: 36px;
+            border-radius: 20px;
+            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5);
+            transform: translateY(20px);
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .modal.active .modal-content {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+
+        .modal-title {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            font-size: 24px;
+            cursor: pointer;
+            transition: color 0.2s;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: var(--text-main);
+        }
+
+        /* Form styling */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .form-control {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 10px;
+            color: var(--text-main);
+            font-size: 14px;
+            font-family: inherit;
+            padding: 12px 16px;
+            transition: all 0.3s ease;
+        }
+
+        .form-control:focus {
+            outline: none;
+            border-color: #818cf8;
+            background: rgba(255, 255, 255, 0.04);
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+        }
+
+        /* Error/Success alerts inside modal */
+        .alert {
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            margin-bottom: 20px;
+            line-height: 1.5;
+            display: none;
+        }
+
+        .alert-error {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            color: #fca5a5;
+        }
+
+        .alert-success {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            color: #a7f3d0;
+        }
+
+        .btn-accent {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+        }
+
+        .btn-accent:hover {
+            background: #5053de;
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+            transform: translateY(-1px);
+        }
     </style>
 </head>
 <body>
@@ -219,51 +353,23 @@
         </header>
 
         <!-- Board Information -->
-        <section class="board-title-section">
-            <h1 class="board-title">{{ board.name }}</h1>
-            <p class="board-description">
-                {% if board.description %}
-                    {{ board.description }}
-                {% else %}
-                    <em style="opacity: 0.5;">Sin descripción disponible.</em>
-                {% endif %}
-            </p>
+        <section class="board-title-section" style="display: flex; justify-content: space-between; align-items: flex-start; gap: 20px;">
+            <div>
+                <h1 class="board-title">{{ board.name }}</h1>
+                <p class="board-description">
+                    {% if board.description %}
+                        {{ board.description }}
+                    {% else %}
+                        <em style="opacity: 0.5;">Sin descripción disponible.</em>
+                    {% endif %}
+                </p>
+            </div>
+            <button class="btn btn-accent btn-sm" style="width: auto; white-space: nowrap;" onclick="openColumnModal()">+ Nueva Columna</button>
         </section>
 
         <!-- Kanban Board Layout -->
-        <div class="kanban-columns">
-            <!-- To Do Column -->
-            <div class="column-card">
-                <div class="column-header">
-                    <span class="column-title">
-                        <span style="color: #fca5a5;">●</span> Por Hacer
-                    </span>
-                    <span class="column-badge">0</span>
-                </div>
-                <div class="column-placeholder">No hay tareas pendientes</div>
-            </div>
-
-            <!-- In Progress Column -->
-            <div class="column-card">
-                <div class="column-header">
-                    <span class="column-title">
-                        <span style="color: #fde047;">●</span> En Progreso
-                    </span>
-                    <span class="column-badge">0</span>
-                </div>
-                <div class="column-placeholder">No hay tareas en progreso</div>
-            </div>
-
-            <!-- Done Column -->
-            <div class="column-card">
-                <div class="column-header">
-                    <span class="column-title">
-                        <span style="color: #86efac;">●</span> Completado
-                    </span>
-                    <span class="column-badge">0</span>
-                </div>
-                <div class="column-placeholder">No hay tareas finalizadas</div>
-            </div>
+        <div class="kanban-columns" id="columns-container">
+            <div class="no-boards" style="animation: fadeIn 0.4s ease-out forwards; width: 100%;">Cargando columnas...</div>
         </div>
 
         <!-- Navigation Footer -->
@@ -272,5 +378,154 @@
             <span style="font-size: 12px; color: var(--text-muted); opacity: 0.6;">Creado el: {{ board.created_at|date:"d/m/Y H:i" }}</span>
         </footer>
     </div>
-</body>
+
+    <!-- Glassmorphic Column Modal Form -->
+    <div class="modal" id="create-column-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 class="modal-title">Agregar Nueva Columna</h3>
+                <button class="modal-close" onclick="closeColumnModal()">&times;</button>
+            </div>
+            
+            <div class="alert alert-error" id="modal-alert-error"></div>
+            <div class="alert alert-success" id="modal-alert-success"></div>
+
+            <form id="create-column-form" onsubmit="handleCreateColumn(event)">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label class="form-label" for="column-name">Nombre de la Columna *</label>
+                    <input class="form-control" type="text" id="column-name" placeholder="Ej. Por Hacer" required autocomplete="off">
+                </div>
+                <button type="submit" class="btn btn-accent" id="submit-btn">Guardar Columna</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- AJAX Fetch and Operations Script -->
+    <script>
+        const BOARD_ID = {{ board.id }};
+        const CSRF_TOKEN = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+
+        // Modal Controls
+        function openColumnModal() {
+            const modal = document.getElementById('create-column-modal');
+            modal.classList.add('active');
+            document.getElementById('column-name').focus();
+            hideAlerts();
+        }
+
+        function closeColumnModal() {
+            const modal = document.getElementById('create-column-modal');
+            modal.classList.remove('active');
+            document.getElementById('create-column-form').reset();
+            hideAlerts();
+        }
+
+        function hideAlerts() {
+            document.getElementById('modal-alert-error').style.display = 'none';
+            document.getElementById('modal-alert-success').style.display = 'none';
+        }
+
+        function showErrorAlert(message) {
+            const err = document.getElementById('modal-alert-error');
+            err.innerText = message;
+            err.style.display = 'block';
+            document.getElementById('modal-alert-success').style.display = 'none';
+        }
+
+        function showSuccessAlert(message) {
+            const succ = document.getElementById('modal-alert-success');
+            succ.innerText = message;
+            succ.style.display = 'block';
+            document.getElementById('modal-alert-error').style.display = 'none';
+        }
+
+        // Fetch Columns dynamically
+        async function fetchColumns() {
+            const container = document.getElementById('columns-container');
+            
+            try {
+                const response = await fetch(`/boards/${BOARD_ID}/columns`);
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    const grid = new ColumnGrid(container, data.columns, reorderColumnsAPI);
+                    grid.render();
+                } else {
+                    container.innerHTML = `<div class="no-boards" style="width:100%;">Error al cargar columnas: ${data.message}</div>`;
+                }
+            } catch (error) {
+                container.innerHTML = `<div class="no-boards" style="width:100%;">Error de conexión al cargar columnas.</div>`;
+            }
+        }
+
+        // Handle Column Creation
+        async function handleCreateColumn(event) {
+            event.preventDefault();
+            hideAlerts();
+
+            const name = document.getElementById('column-name').value;
+            const submitBtn = document.getElementById('submit-btn');
+
+            submitBtn.disabled = true;
+            submitBtn.innerText = 'Guardando...';
+
+            try {
+                const response = await fetch('/columns/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CSRF_TOKEN
+                    },
+                    body: JSON.stringify({ board_id: BOARD_ID, name })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    showSuccessAlert(data.message);
+                    await fetchColumns();
+                    setTimeout(() => {
+                        closeColumnModal();
+                    }, 1000);
+                } else {
+                    showErrorAlert(data.message || 'Error al crear la columna.');
+                }
+            } catch (error) {
+                showErrorAlert('Error de conexión con el servidor.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerText = 'Guardar Columna';
+            }
+        }
+
+        // Handle Column Reordering
+        async function reorderColumnsAPI(columnIds) {
+            try {
+                const response = await fetch('/columns/reorder', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': CSRF_TOKEN
+                    },
+                    body: JSON.stringify({ board_id: BOARD_ID, column_ids: columnIds })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.status === 'success') {
+                    await fetchColumns();
+                } else {
+                    alert(data.message || 'Error al reordenar las columnas.');
+                    await fetchColumns();
+                }
+            } catch (error) {
+                alert('Error de conexión al reordenar columnas.');
+                await fetchColumns();
+            }
+        }
+
+        // Initialize loader on load
+        document.addEventListener('DOMContentLoaded', fetchColumns);
+    </script>
 </html>
