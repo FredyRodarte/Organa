@@ -12,5 +12,6 @@ urlpatterns = [
     path('stories/', include('apps.user_stories.urls')),
     path('tasks/', include('apps.tasks.urls')),
     path('users/', list_users_view, name='list_users'),
+    path('metrics/', include('apps.metrics.urls')),
     path('', HomeRedirectView.as_view(), name='home'),
 ]

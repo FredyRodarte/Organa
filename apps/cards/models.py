@@ -56,6 +56,8 @@ class KanbanCard(models.Model):
         ordering = ['position', 'created_at']
         indexes = [
             models.Index(fields=['column', 'position']),
+            models.Index(fields=['assigned_to']),
+            models.Index(fields=['user_story']),
         ]
 
     def __str__(self):

@@ -11,6 +11,7 @@
     <script src="{% static 'js/components/cards.js' %}"></script>
     <script src="{% static 'js/components/user_stories.js' %}"></script>
     <script src="{% static 'js/components/columns.js' %}"></script>
+    <script src="{% static 'js/components/metrics.js' %}"></script>
     <style>
         :root {
             --bg-deep: #08090c;
@@ -368,6 +369,7 @@
                 </p>
             </div>
             <div style="display: flex; gap: 12px;">
+                <button class="btn btn-outline btn-sm" style="width: auto; white-space: nowrap; border-color: rgba(99,102,241,0.3); color: #a5b4fc;" onclick="toggleMetricsSidebar()">📊 Métricas</button>
                 <button class="btn btn-outline btn-sm" style="width: auto; white-space: nowrap; border-color: rgba(139,92,246,0.3); color: #d8b4fe;" onclick="toggleStoriesSidebar()">📖 Historias de Usuario</button>
                 <button id="btn-new-column-header" class="btn btn-accent btn-sm" style="width: auto; white-space: nowrap;" onclick="openColumnModal()">+ Nueva Columna</button>
             </div>
@@ -462,6 +464,17 @@
         </div>
         <div id="stories-sidebar-content" style="flex-grow: 1; display: flex; flex-direction: column; gap: 20px; overflow-y: auto;">
             <!-- Rendered by StoryList -->
+        </div>
+    </div>
+
+    <!-- Metrics Sidebar Drawer -->
+    <div id="metrics-sidebar" style="position: fixed; top: 0; right: 0; bottom: 0; width: 480px; background: rgba(10, 11, 17, 0.95); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-left: 1px solid rgba(255, 255, 255, 0.08); box-shadow: -10px 0 40px rgba(0, 0, 0, 0.6); z-index: 1050; transform: translateX(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column; padding: 32px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding-bottom: 12px;">
+            <h2 id="metrics-sidebar-title" style="font-size: 20px; font-weight: 700; color: var(--text-main); margin: 0;">📊 Métricas del Tablero</h2>
+            <button class="modal-close" onclick="toggleMetricsSidebar()" style="font-size: 28px;">&times;</button>
+        </div>
+        <div id="metrics-sidebar-content" style="flex-grow: 1; display: flex; flex-direction: column; gap: 24px; overflow-y: auto; padding-right: 4px;">
+            <!-- Rendered by MetricsDrawer -->
         </div>
     </div>
 
@@ -868,6 +881,12 @@
             const sidebar = document.getElementById('stories-sidebar');
             const isActive = sidebar.style.transform === 'translateX(0px)' || sidebar.style.transform === 'translateX(0)';
             
+            // If opening stories, close metrics drawer
+            const metricsSidebar = document.getElementById('metrics-sidebar');
+            if (!isActive && metricsSidebar) {
+                metricsSidebar.style.transform = 'translateX(100%)';
+            }
+            
             if (isActive) {
                 sidebar.style.transform = 'translateX(100%)';
             } else {
@@ -880,6 +899,30 @@
             }
         }
         window.toggleStoriesSidebar = toggleStoriesSidebar;
+
+        let metricsDrawerInstance = null;
+        function toggleMetricsSidebar() {
+            const sidebar = document.getElementById('metrics-sidebar');
+            const isActive = sidebar.style.transform === 'translateX(0px)' || sidebar.style.transform === 'translateX(0)';
+            
+            // If opening metrics, close stories drawer
+            const storiesSidebar = document.getElementById('stories-sidebar');
+            if (!isActive && storiesSidebar) {
+                storiesSidebar.style.transform = 'translateX(100%)';
+            }
+            
+            if (isActive) {
+                sidebar.style.transform = 'translateX(100%)';
+            } else {
+                sidebar.style.transform = 'translateX(0)';
+                if (!metricsDrawerInstance) {
+                    const contentContainer = document.getElementById('metrics-sidebar-content');
+                    metricsDrawerInstance = new MetricsDrawer(contentContainer, BOARD_ID);
+                }
+                metricsDrawerInstance.load();
+            }
+        }
+        window.toggleMetricsSidebar = toggleMetricsSidebar;
 
         // Fetch System Users
         let systemUsers = [];
